@@ -1,0 +1,23 @@
+Video Compilation Maker - licence information
+=============================================
+
+Video Compilation Maker itself is released under the MIT License (see LICENSE).
+
+The application bundles third-party components that keep their own licences:
+
+* FFmpeg (with libx264 and other libraries) - GNU General Public License v3.
+  The FFmpeg executables are separate programs started by Video Compilation Maker.
+  Source code: https://github.com/FFmpeg/FFmpeg ; build recipe: https://github.com/BtbN/FFmpeg-Builds
+* Qt for Python (PySide6) / Qt - GNU Lesser General Public License v3.
+  The Qt libraries are shipped as separate DLLs and can be replaced.
+* OpenCV - Apache License 2.0
+* NumPy - BSD 3-Clause License
+* Pillow - MIT-CMU (HPND) License
+* Poppins font - SIL Open Font License 1.1
+* YuNet face detection model - MIT License
+
+Full licence texts are installed in the "_internal\licenses" folder and are listed
+in THIRD_PARTY_NOTICES.md.
+
+All video processing happens on your computer. The application does not upload
+your videos and does not need an internet connection.

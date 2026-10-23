@@ -1,0 +1,5 @@
+# Runtime dependencies (versions tested on Linux and on the Windows build runner)
+numpy==2.5.4
+opencv-python-headless==4.14.0.94
+Pillow==13.0.0
+PySide6-Essentials==6.12.0
