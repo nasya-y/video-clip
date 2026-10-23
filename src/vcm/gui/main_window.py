@@ -356,9 +356,14 @@ class MainWindow(QMainWindow):
         self.lbl_stage.setMinimumWidth(100)
         self.lbl_done = QLabel("Compilations completed: 0")
         self.lbl_done.setObjectName("Big")
+        self.lbl_summary = QLabel("")
+        self.lbl_summary.setObjectName("Hint")
+        self.lbl_summary.setWordWrap(True)
+        self.lbl_summary.setVisible(False)
         lay.addWidget(self.lbl_video)
         lay.addWidget(self.lbl_stage)
         lay.addWidget(self.lbl_done)
+        lay.addWidget(self.lbl_summary)
         self.errors = QListWidget()
         self.errors.setObjectName("Errors")
         self.errors.setMaximumHeight(80)
@@ -627,6 +632,7 @@ class MainWindow(QMainWindow):
         save_settings(settings)
         self.errors.clear()
         self.errors.setVisible(False)
+        self.lbl_summary.setVisible(False)
         self.created_this_run = 0
         self.lbl_done.setText("Compilations completed: 0")
         self.progress.setValue(0)
@@ -711,17 +717,21 @@ class MainWindow(QMainWindow):
             self.progress.setValue(1000)
             self.progress.setFormat("Done")
             self.lbl_stage.setText(f"Finished in {took}.")
-        parts = [f"Created {n} compilation{'s' if n != 1 else ''} from {summary.videos} video"
-                 f"{'s' if summary.videos != 1 else ''}."]
+        head = (f"Created {n} compilation{'s' if n != 1 else ''} from {summary.videos} video"
+                f"{'s' if summary.videos != 1 else ''}.")
+        if summary.errors:
+            head += f"  {len(summary.errors)} problem(s) – see Progress."
+        self.lbl_results.setText(head)
+        lines = []
         for vs in summary.video_summaries:
             rem = vs.get("remaining") or {}
             if rem.get("message"):
-                parts.append(f"• {Path(vs['video']).name}: {vs.get('compilations_total', 0)} in total. {rem['message']}")
+                lines.append(f"• {Path(vs['video']).name}: {vs.get('compilations_total', 0)} compilation(s) in "
+                             f"total. {rem['message']}")
             elif vs.get("errors"):
-                parts.append(f"• {Path(vs['video']).name}: {vs['errors'][0]}")
-        if summary.errors:
-            parts.append(f"{len(summary.errors)} problem(s) – see the list in Progress.")
-        self.lbl_results.setText("\n".join(parts))
+                lines.append(f"• {Path(vs['video']).name}: {vs['errors'][0]}")
+        self.lbl_summary.setText("\n".join(lines))
+        self.lbl_summary.setVisible(bool(lines))
 
     @Slot()
     def _thread_done(self) -> None:

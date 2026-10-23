@@ -102,6 +102,8 @@ def output_format(info: MediaInfo, an: AnalysisResult, settings: Settings) -> Ou
     hdr = info.is_hdr and "zscale" in available_filters() and "tonemap" in available_filters()
     if info.is_hdr and not hdr:
         notes.append("HDR source but tone mapping filters unavailable - colours may look flat")
+    if info.interlaced:
+        notes.append("interlaced source deinterlaced (bwdif)")
     if hdr:
         cs = "bt709"
         notes.append("HDR source tone-mapped to SDR BT.709")
@@ -191,7 +193,10 @@ class RenderJob:
 
     def _video_chain(self, i: int, n_frames: int) -> str:
         fmt = self.fmt
-        parts = ["settb=AVTB", f"setpts=(PTS-STARTPTS)/{self.speed:.10g}",
+        parts = []
+        if self.info.interlaced:
+            parts.append("bwdif=mode=send_frame:deint=interlaced")
+        parts += ["settb=AVTB", f"setpts=(PTS-STARTPTS)/{self.speed:.10g}",
                  f"fps={fmt.fps.numerator}/{fmt.fps.denominator}", f"trim=end_frame={n_frames}",
                  "setpts=PTS-STARTPTS"]
         if fmt.hdr_tonemap:
@@ -200,7 +205,7 @@ class RenderJob:
         if fmt.needs_scale:
             parts.append(f"scale={fmt.width}:{fmt.height}:flags=lanczos")
         parts += ["setsar=1", "format=yuv420p"]
-        return f"[{i}:v:0]" + ",".join(parts) + f"[v{i}]"
+        return f"[{i}:{self.info.video_stream_index}]" + ",".join(parts) + f"[v{i}]"
 
     def _audio_chain(self, i: int, offset: float, n_samples: int) -> str:
         L = self.clip_duration * self.speed

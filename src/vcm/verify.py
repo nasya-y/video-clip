@@ -173,6 +173,7 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
         return res
     black = [(i, round(float(times[i]), 3)) for i in range(n_out) if out_luma[i] < 18 and out_contrast[i] < 8]
     checks["no_black_frames"] = {"passed": not black, "black_frames": black[:20]}
+    black_clips = sorted({int(np.searchsorted(fb, i, side="right") - 1) for i, _ in black})
     step(0.2)
 
     # ---------------------------------------------------------------- 3. per-clip source checks
@@ -185,7 +186,9 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
         t_k = float(job.an.t[clip.start_idx])
         start = max(0.0, t_k - 0.35)
         window = D * S * S + 0.7 + (t_k - start)
-        src_reader = FrameReader(job.info.path, aw, ah, start=start, duration=window, cancel=cancel)
+        src_reader = FrameReader(job.info.path, aw, ah, start=start, duration=window, cancel=cancel,
+                                 stream=job.info.video_stream_index,
+                                 pre_filters="bwdif=mode=send_frame:deint=interlaced" if job.info.interlaced else None)
         st, sn, sbgr = [], [], []
         for _, t, f in src_reader:
             st.append(start + t)
@@ -395,7 +398,7 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
     step(1.0)
 
     # ---------------------------------------------------------------- verdict
-    res.bad_clips = sorted(set(content_fail) | set(cut_fail) | set(timing_fail) | set(reuse_bad))
+    res.bad_clips = sorted(set(content_fail) | set(cut_fail) | set(timing_fail) | set(reuse_bad) | set(black_clips))
     for name, chk in checks.items():
         if isinstance(chk, dict) and not chk.get("passed", True):
             res.problems.append(f"check failed: {name}")

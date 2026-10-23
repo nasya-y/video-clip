@@ -167,7 +167,7 @@ def test_audio_sync_against_ground_truth_beeps(multi_comp_video, multi_result):
     ("fps2997_vga.mp4", "30000/1001", 640, 480, True, {}),
     ("fps50_noaudio.mp4", 50, 640, 360, False, {}),
     ("fps60_small.mp4", 60, 426, 240, True, {}),
-    ("vfr.mp4", 30, 480, 270, True, {"vfr": True}),
+    ("vfr_pipeline.mp4", 30, 480, 270, True, {"vfr": True}),
     ("anamorphic.mp4", 25, 640, 480, True, {"sar": "4/3"}),
     ("rotated.mp4", 30, 640, 360, True, {"rotation": 90}),
 ])
@@ -216,3 +216,54 @@ def test_folder_selection_and_output_folder_skipping(one_comp_video, short_video
     assert collect_videos([str(out / "a clip")]) == []
     # source files untouched
     assert (src_dir / "a clip.mp4").stat().st_size == Path(one_comp_video[0]).stat().st_size
+
+
+def test_clips_touching_both_ends_of_the_file(videos, tmp_path):
+    """39.3 s of continuous footage: ten 3.9 s clips (each starting on a frame, i.e. 98 frames apart at
+    25 fps) need 39.18 s, so the clips must run from the first frames to the last frames of the file."""
+    from vcm.synth import Shot
+    path, gt = videos.get("exact39.mp4", [Shot(39.3, scene=7, camera="pan", sprites=4)], width=320, height=180,
+                          fps=25, seed=41)
+    s = run([path], tmp_path)
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / "exact39")
+    comp = rep["compilations"][0]
+    assert comp["verification"]["passed"]
+    assert comp["clips"][0]["source_start_s"] < 0.15
+    assert comp["clips"][-1]["source_end_s"] > 39.15
+    assert_valid_compilation(tmp_path / "exact39" / "Compilation 1.mp4", True, (320, 180))
+
+
+def test_interlaced_source_is_deinterlaced(videos, tmp_path):
+    import subprocess
+    from vcm.ffmpeg_tools import ffmpeg
+    src, gt = videos.get("progressive_for_interlace.mp4", two_shot(45.0), width=640, height=360, fps=25, seed=43)
+    inter = tmp_path / "interlaced.mp4"
+    subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx264",
+                    "-flags", "+ildct+ilme", "-x264opts", "tff=1", "-field_order", "tt", "-crf", "18", "-c:a", "copy",
+                    str(inter)], check=True)
+    assert probe(str(inter)).interlaced
+    s = run([inter], tmp_path / "out")
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / "out" / "interlaced")
+    assert rep["compilations_completed"] == 1
+    assert any("deinterlaced" in w for w in rep["warnings"])
+    assert rep["compilations"][0]["verification"]["passed"]
+
+
+def test_file_with_cover_art_stream(videos, tmp_path):
+    import subprocess
+    from vcm.ffmpeg_tools import ffmpeg
+    from PIL import Image
+    src, gt = videos.get("for_cover.mp4", two_shot(45.0), width=480, height=270, fps=30, seed=44)
+    cover = tmp_path / "cover.png"
+    Image.new("RGB", (300, 300), (200, 30, 30)).save(cover)
+    out = tmp_path / "with cover.mp4"
+    subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-i", str(cover),
+                    "-map", "1", "-map", "0", "-c", "copy", "-c:v:0", "png", "-disposition:v:0", "attached_pic",
+                    str(out)], check=True)
+    info = probe(str(out))
+    assert info.video_codec == "h264" and info.display_size == (480, 270)  # the cover picture is ignored
+    s = run([out], tmp_path / "o")
+    assert not s.errors, s.errors
+    assert load_report(tmp_path / "o" / "with cover")["compilations_completed"] == 1

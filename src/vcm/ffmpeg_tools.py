@@ -252,6 +252,8 @@ class MediaInfo:
     color_transfer: str = ""
     color_primaries: str = ""
     color_range: str = ""
+    field_order: str = ""
+    video_stream_index: int = 0
     video_duration: float = 0.0
     # audio
     has_audio: bool = False
@@ -288,6 +290,10 @@ class MediaInfo:
         return w, h
 
     @property
+    def interlaced(self) -> bool:
+        return self.field_order in ("tt", "bb", "tb", "bt")
+
+    @property
     def is_hdr(self) -> bool:
         return self.color_transfer in ("smpte2084", "arib-std-b67")
 
@@ -310,6 +316,7 @@ class MediaInfo:
                 "pixel_format": self.pix_fmt,
                 "color_transfer": self.color_transfer or None,
                 "hdr": self.is_hdr,
+                "interlaced": self.interlaced,
             } if self.has_video else None,
             "audio": {
                 "codec": self.audio_codec,
@@ -348,6 +355,8 @@ def probe(path: str | os.PathLike, cancel: Optional[CancelToken] = None) -> Medi
     if vstreams:
         v = vstreams[0]
         info.video_codec = str(v.get("codec_name", ""))
+        info.video_stream_index = int(v.get("index", 0))
+        info.field_order = str(v.get("field_order", "") or "")
         info.coded_width = int(v.get("width") or 0)
         info.coded_height = int(v.get("height") or 0)
         sar = _frac(v.get("sample_aspect_ratio", "1:1").replace(":", "/"))
@@ -417,7 +426,7 @@ class FrameReader:
                  start: Optional[float] = None, duration: Optional[float] = None,
                  crop: Optional[tuple[int, int, int, int]] = None, scale: bool = True,
                  pre_filters: Optional[str] = None, cancel: Optional[CancelToken] = None,
-                 color_matrix: Optional[str] = None):
+                 color_matrix: Optional[str] = None, stream: Optional[int] = None):
         self.path = path
         self.width = width
         self.height = height
@@ -441,7 +450,8 @@ class FrameReader:
             cmd += ["-ss", f"{max(0.0, start):.6f}"]
         if duration is not None:
             cmd += ["-t", f"{duration:.6f}"]
-        cmd += ["-i", path, "-map", "0:v:0", "-an", "-sn", "-dn", "-vf", ",".join(filters),
+        vmap = f"0:{stream}" if stream is not None else "0:v:0"
+        cmd += ["-i", path, "-map", vmap, "-an", "-sn", "-dn", "-vf", ",".join(filters),
                 "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", pix_fmt, "pipe:1"]
         self._cmd = cmd
         self._proc: Optional[subprocess.Popen] = None

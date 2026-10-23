@@ -159,8 +159,12 @@ class Report:
         if comp is None:
             comp = {"index": index, "attempts": []}
             self.compilations().append(comp)
+        # failed attempts recorded earlier for this compilation number (they used other footage)
+        history = [a for a in self.data.get("failed_attempts", []) if a.get("compilation") == index]
         comp.update(entry)
+        comp["attempts"] = history + list(entry.get("attempts", []))
         comp["status"] = "completed"
+        comp.pop("failure_reason", None)
         for e in self.data.get("allocation_ledger", []):
             if e.get("compilation") == index and e.get("status") == "planned":
                 e["status"] = "used"
@@ -169,9 +173,9 @@ class Report:
                               rejected: Optional[list[tuple[float, float]]] = None) -> None:
         """A rendered attempt failed verification: release its footage, reject bad intervals."""
         comp = self.comp(index)
-        if comp is not None:
-            comp.setdefault("attempts", []).append({"time": now_iso(), "reason": reason,
-                                                    "clips": comp.get("clips"), "details": details})
+        self.data.setdefault("failed_attempts", []).append(
+            {"compilation": index, "time": now_iso(), "reason": reason,
+             "clips": comp.get("clips") if comp else None, "details": details})
         bad = rejected or []
         for e in self.data.get("allocation_ledger", []):
             if e.get("compilation") == index and e.get("status") == "planned":

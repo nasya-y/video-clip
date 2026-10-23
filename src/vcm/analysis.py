@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from array import array
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -222,7 +223,8 @@ class _FeatureExtractor:
         self.prev_gray: Optional[np.ndarray] = None
         self.prev_blur: Optional[np.ndarray] = None
         self.prev_hsv: Optional[np.ndarray] = None
-        self.cols: dict[str, list[float]] = {k: [] for k in RAW_FIELDS}
+        # compact float arrays (a 2-hour 60 fps video has ~430k frames)
+        self.cols: dict[str, array] = {k: array("d") for k in RAW_FIELDS}
         # gradual transition detection on tiny frames
         self.tw, self.th = max(16, width // 3), max(10, height // 3)
         fps = fps if fps and fps > 0 else 30.0
@@ -340,7 +342,7 @@ def analyze_video(info: MediaInfo, cancel: Optional[CancelToken] = None,
     fps = float(info.fps)
     ext = _FeatureExtractor(aw, ah, fps)
     expected = max(1.0, info.duration * fps)
-    reader = FrameReader(info.path, aw, ah, cancel=cancel)
+    reader = FrameReader(info.path, aw, ah, cancel=cancel, stream=info.video_stream_index)
     last_report = -1.0
     for idx, t, frame in reader:
         ext.push(t, frame)

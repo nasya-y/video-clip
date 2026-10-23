@@ -47,15 +47,15 @@ jobs:
           vendor/ffmpeg/bin/ffmpeg.exe -hide_banner -version
 
       - name: Run the automated test suite on Windows
+        id: tests
+        continue-on-error: true
         env:
           VCM_FFMPEG_DIR: ${{ github.workspace }}\vendor\ffmpeg\bin
           QT_QPA_PLATFORM: offscreen
         run: |
           New-Item -ItemType Directory -Force test-results | Out-Null
-          python -m pytest -v -p no:cacheprovider --junitxml=test-results/junit-windows.xml --durations=30 *> test-results/pytest-windows.txt
-          $code = $LASTEXITCODE
-          Get-Content test-results/pytest-windows.txt -Tail 150
-          exit $code
+          python -m pytest -v -p no:cacheprovider --junitxml=test-results/junit-windows.xml --durations=30 2>&1 | Tee-Object -FilePath test-results/pytest-windows.txt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Build the application with PyInstaller
         run: |
@@ -132,8 +132,14 @@ jobs:
           name: VideoCompilationMaker-portable
           path: dist/VideoCompilationMaker-*-portable-win64.zip
 
+      - name: Fail the job if any automated test failed
+        if: steps.tests.outcome != 'success'
+        run: |
+          Write-Error "The automated test suite failed - see the 'Run the automated test suite' step"
+          exit 1
+
       - name: Publish GitHub release
-        if: contains(github.event.head_commit.message, '[release]')
+        if: steps.tests.outcome == 'success' && contains(github.event.head_commit.message, '[release]')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VCM_VERSION }}

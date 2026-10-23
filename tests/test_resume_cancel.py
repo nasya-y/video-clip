@@ -205,3 +205,79 @@ def test_same_name_different_video_gets_own_folder(one_comp_video, short_video, 
     assert (out / "clip" / "Compilation report.json").exists()
     assert (out / "clip (2)" / "Compilation report.json").exists()
     assert load_report(out / "clip")["source"]["path"] != load_report(out / "clip (2)")["source"]["path"]
+
+
+# ----------------------------------------------------------------------------- failure recovery paths
+
+def test_failed_verification_replaces_footage(one_comp_video, tmp_path, monkeypatch):
+    """A compilation that fails verification is never kept; its bad clip is replaced by other footage."""
+    import vcm.pipeline as pl
+    from vcm.verify import VerificationResult
+    real = pl.verify_compilation
+    calls = {"n": 0}
+    rejected = {}
+
+    def flaky(job, out_path, style, *a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            rejected["interval"] = (job.clips[3].source_start, job.clips[3].source_end)
+            return VerificationResult(passed=False, bad_clips=[3], problems=["simulated cut inside clip 4"])
+        return real(job, out_path, style, *a, **kw)
+
+    monkeypatch.setattr(pl, "verify_compilation", flaky)
+    path, _ = one_comp_video
+    s = Pipeline(Settings(), str(tmp_path)).run([path])
+    folder = tmp_path / Path(path).stem
+    rep = load_report(folder)
+    assert not s.errors, s.errors
+    assert rep["compilations_completed"] == 1, "12 clips fit, so one rejected clip can be replaced"
+    a, b = rejected["interval"]
+    for _, x, y in clip_intervals(rep):
+        assert y <= a + 1e-4 or x >= b - 1e-4, "rejected footage was used again"
+    assert any(e["status"] == "rejected" for e in rep["allocation_ledger"])
+    assert any("rejected by verification" in sec["reason"] for sec in rep["skipped_sections"])
+    comp = rep["compilations"][0]
+    assert comp["attempts"] and comp["verification"]["passed"]
+    assert sorted(p.name for p in folder.glob("*.mp4")) == ["Compilation 1.mp4"]
+
+
+def test_unreadable_watermark_is_restyled_and_rerendered(one_comp_video, tmp_path, monkeypatch):
+    import vcm.pipeline as pl
+    from vcm.verify import VerificationResult
+    real = pl.verify_compilation
+    styles = []
+
+    def strict(job, out_path, style, *a, **kw):
+        styles.append(style)
+        if len(styles) == 1:
+            return VerificationResult(passed=False, watermark_failed=True, problems=["simulated low contrast"])
+        return real(job, out_path, style, *a, **kw)
+
+    monkeypatch.setattr(pl, "verify_compilation", strict)
+    path, _ = one_comp_video
+    s = Pipeline(Settings(), str(tmp_path)).run([path])
+    assert not s.errors
+    assert len(styles) == 2
+    assert styles[1].fill_name != styles[0].fill_name or styles[1].outline_px > styles[0].outline_px
+    rep = load_report(tmp_path / Path(path).stem)
+    assert rep["compilations"][0]["watermark"]["colour_name"] == styles[1].fill_name
+
+
+def test_systematic_render_failure_does_not_reject_footage(one_comp_video, tmp_path, monkeypatch):
+    import vcm.pipeline as pl
+    from vcm.ffmpeg_tools import FFmpegError
+
+    def broken(*a, **kw):
+        raise FFmpegError("simulated encoder failure", "details")
+
+    monkeypatch.setattr(pl, "render", broken)
+    path, _ = one_comp_video
+    s = Pipeline(Settings(), str(tmp_path)).run([path])
+    assert s.compilations_created == [] and s.errors
+    rep = load_report(tmp_path / Path(path).stem)
+    assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"], "footage must stay usable"
+    assert rep["errors"]
+    # after the problem is gone, the same footage is still available
+    monkeypatch.undo()
+    s2 = Pipeline(Settings(), str(tmp_path)).run([path])
+    assert len(s2.compilations_created) == 1 and not s2.errors

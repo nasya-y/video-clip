@@ -33,14 +33,18 @@ class VideoFactory:
     """Creates synthetic videos once per test session and returns (path, ground truth)."""
 
     def __init__(self) -> None:
-        self._cache: dict[str, tuple[str, GroundTruth]] = {}
+        self._cache: dict[str, tuple[str, GroundTruth, str]] = {}
 
     def get(self, name: str, shots, **kwargs) -> tuple[str, GroundTruth]:
-        if name not in self._cache:
-            path = _VIDEO_DIR / name
-            gt = make_video(str(path), shots, **kwargs)
-            self._cache[name] = (str(path), gt)
-        return self._cache[name]
+        key = repr((shots, sorted(kwargs.items())))
+        if name in self._cache:
+            if self._cache[name][2] != key:
+                raise ValueError(f"test video name {name!r} reused with different content")
+            return self._cache[name][:2]
+        path = _VIDEO_DIR / name
+        gt = make_video(str(path), shots, **kwargs)
+        self._cache[name] = (str(path), gt, key)
+        return str(path), gt
 
 
 @pytest.fixture(scope="session")

@@ -23,7 +23,7 @@ from PIL import Image
 
 from . import APP_NAME, __version__
 from .analysis import ANALYSIS_MAX_SIDE, AnalysisResult, analyze_video, file_fingerprint
-from .ffmpeg_tools import CancelToken, Cancelled, FFmpegError, ffmpeg_version, probe
+from .ffmpeg_tools import CancelToken, Cancelled, FFmpegError, ffmpeg, ffmpeg_version, probe, run
 from .paths import cache_dir, temp_root
 from .render import RenderJob, output_format, preview_frames, render
 from .report import (REPORT_NAME, Report, compilation_name, existing_compilation_files, now_iso,
@@ -109,7 +109,7 @@ class TempWorkspace:
         shutil.rmtree(self.path, ignore_errors=True)
 
     @staticmethod
-    def cleanup_stale(max_age_h: float = 12.0) -> None:
+    def cleanup_stale(max_age_h: float = 12.0, cache_limit_bytes: int = 2_000_000_000) -> None:
         root = temp_root()
         now = time.time()
         for d in root.glob("run-*"):
@@ -118,6 +118,17 @@ class TempWorkspace:
                     shutil.rmtree(d, ignore_errors=True)
             except OSError:
                 pass
+        # keep the analysis cache and thumbnails bounded (oldest files go first)
+        try:
+            files = [p for p in cache_dir().rglob("*") if p.is_file()]
+            files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            total = 0
+            for p in files:
+                total += p.stat().st_size
+                if total > cache_limit_bytes or now - p.stat().st_mtime > 90 * 86400:
+                    p.unlink()
+        except OSError:
+            pass
 
 
 class _Progress:
@@ -248,6 +259,12 @@ class Pipeline:
         fingerprint = file_fingerprint(path)
         folder, report = self._resolve_folder(path, fingerprint)
         resumed = report is not None
+        for stale in list(folder.glob("*.mp4.partial")) + list(folder.glob("*.json.tmp")) if folder.is_dir() else []:
+            try:  # left behind by a crash or power cut during the final file move
+                stale.unlink()
+                self._log(f"Removed incomplete file {stale.name} from an interrupted run", logging.WARNING)
+            except OSError:
+                pass
         source_info = {"filename": name, "path": str(Path(path).resolve()), "fingerprint": fingerprint,
                        **info.summary()}
         if report is None:
@@ -375,6 +392,8 @@ class Pipeline:
                 continue
             # unrecoverable for this compilation
             consecutive_failures += 1
+            if outcome.get("fatal"):
+                consecutive_failures = 2
             report.mark_failed(index, outcome.get("reason", "unknown error"))
             report.add_error(f"Compilation {index} attempt could not be completed: {outcome.get('reason')}")
             report.save()
@@ -449,10 +468,18 @@ class Pipeline:
                 if not render_retry_used:
                     render_retry_used = True
                     continue
-                # repeated render failure: the footage itself may be damaged
-                rejected = [(c.source_start, c.source_end) for c in clips]
-                report.record_failed_attempt(index, "render failed twice", {"attempts": attempts}, rejected)
-                return {"status": "replan", "reason": "render failed twice; footage rejected"}
+                # Repeated failure. Only footage that itself cannot be decoded is rejected;
+                # anything else (e.g. a full disk) stops this video without touching the ledger.
+                self._check_disk_space(folder, fmt)
+                bad = self._undecodable_clips(job)
+                if bad:
+                    rejected = [(clips[k].source_start, clips[k].source_end) for k in bad]
+                    report.record_failed_attempt(index, "source footage cannot be decoded", {"attempts": attempts},
+                                                 rejected)
+                    return {"status": "replan", "reason": f"{len(bad)} damaged clip(s) replaced"}
+                report.record_failed_attempt(index, "render failed twice", {"attempts": attempts})
+                return {"status": "failed", "reason": f"FFmpeg could not render the compilation: {exc}",
+                        "fatal": True}
             render_s = time.monotonic() - t0
             sub(0.7, "verifying")
             ver = verify_compilation(job, tmp_out, style, st.cut_sensitivity, others, cancel,
@@ -491,6 +518,18 @@ class Pipeline:
         _remove(tmp_out)
         report.record_failed_attempt(index, "verification failed", {"attempts": attempts})
         return {"status": "failed", "reason": "the compilation did not pass verification after several attempts"}
+
+    def _undecodable_clips(self, job: RenderJob) -> list[int]:
+        """Indices of clips whose source section produces decoding errors."""
+        bad = []
+        L = job.clip_duration * job.speed
+        for k, (seek, _off) in enumerate(job.seek_points()):
+            r = run([ffmpeg(), "-hide_banner", "-nostdin", "-v", "error", "-xerror", "-ss", f"{seek:.6f}",
+                     "-t", f"{L + 0.5:.6f}", "-i", job.info.path, "-map", f"0:{job.info.video_stream_index}",
+                     "-f", "null", "-"], self.cancel, timeout=600)
+            if r.returncode != 0 or r.stderr.strip():
+                bad.append(k)
+        return bad
 
     def _commit(self, tmp_out: str, folder: Path, index: int) -> Path:
         folder.mkdir(parents=True, exist_ok=True)
