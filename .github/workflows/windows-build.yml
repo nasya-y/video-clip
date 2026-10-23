@@ -114,6 +114,10 @@ jobs:
           if (Test-Path selftest-exe/selftest_result.json) { Copy-Item selftest-exe/selftest_result.json test-results/ }
           if (Test-Path vendor/ffmpeg/BUILD_INFO.json) { Copy-Item vendor/ffmpeg/BUILD_INFO.json test-results/ffmpeg-build-info.json }
 
+      - name: Print key results to the log
+        if: always()
+        run: python packaging/ci_log_summary.py
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
