@@ -32,6 +32,12 @@ def main() -> int:
         for p in sorted(dist.iterdir()):
             size = p.stat().st_size if p.is_file() else sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
             print(f"{p.name}: {size / 1e6:.1f} MB")
+    app = dist / "VideoCompilationMaker"
+    if app.is_dir():
+        print("===== largest files in the packaged app =====")
+        files = sorted((f for f in app.rglob("*") if f.is_file()), key=lambda f: -f.stat().st_size)[:25]
+        for f in files:
+            print(f"{f.stat().st_size / 1e6:8.1f} MB  {f.relative_to(app)}")
     reports = sorted((ROOT / "selftest-exe" / "output").rglob("Compilation report.json"))
     for r in reports:
         data = json.loads(r.read_text(encoding="utf-8"))

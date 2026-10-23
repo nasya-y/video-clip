@@ -188,7 +188,7 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
         window = D * S * S + 0.7 + (t_k - start)
         src_reader = FrameReader(job.info.path, aw, ah, start=start, duration=window, cancel=cancel,
                                  stream=job.info.video_stream_index,
-                                 pre_filters="bwdif=mode=send_frame:deint=interlaced" if job.info.interlaced else None)
+                                 pre_filters=",".join(job.picture_filters()) or None)
         st, sn, sbgr = [], [], []
         for _, t, f in src_reader:
             st.append(start + t)

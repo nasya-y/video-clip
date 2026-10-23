@@ -8,21 +8,31 @@ compilations** automatically: 10 clips × 3 seconds, sped up 1.3×, watermarked 
 Everything runs on your laptop. The program works offline, needs no account, API key or
 subscription, and never uploads your videos anywhere.
 
-![Main window](docs/screenshot.png)
+![Main window on Windows](docs/screenshot-windows.jpg)
+
+*The main window, captured from the packaged `VideoCompilationMaker.exe` on the Windows
+build machine. [After a run](docs/screenshot.png) the Results list shows each compilation
+with a thumbnail.*
 
 ---
 
 ## 1. Download and install
 
-Go to the repository's **Releases** page and download one of:
+Go to the repository's **[Releases](https://github.com/nasya-y/video-clip/releases)** page and
+download one of:
 
 | File | What it is |
 |---|---|
 | `VideoCompilationMaker-Setup-1.0.0.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
 | `VideoCompilationMaker-1.0.0-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
 
-Everything is bundled (Python runtime, Qt, OpenCV, FFmpeg) — you do **not** need to install
-Python, FFmpeg or anything else. Windows 10 or 11, 64-bit.
+Everything is bundled (Python runtime, Qt, OpenCV, FFmpeg 9.0) — you do **not** need to
+install Python, FFmpeg or anything else. Windows 10 or 11, 64-bit. The installer is about
+165 MB and needs about 610 MB of disk space once installed.
+
+The same files are also attached to every successful run of the
+[*Windows build and test* workflow](https://github.com/nasya-y/video-clip/actions/workflows/windows-build.yml)
+(*Artifacts* section; you must be signed in to GitHub, and artifacts expire after 90 days).
 
 > **SmartScreen warning.** The program is not code-signed (that requires a paid certificate),
 > so the first time you run it Windows may say *"Windows protected your PC"*.
@@ -134,7 +144,9 @@ left unused. A sample is in [`docs/sample-output`](docs/sample-output).
 
 Output files are standard MP4 (H.264 High profile + AAC 48 kHz, `faststart`), same
 resolution and aspect ratio as the source, constant frame rate equal to the source frame
-rate (capped at 60 fps by default). HDR (HLG/PQ) sources are tone-mapped to normal SDR.
+rate (capped at 60 fps by default). HDR sources (HLG as recorded by iPhones, PQ/HDR10) are
+tone-mapped to normal SDR so they look right everywhere; interlaced camcorder footage is
+deinterlaced; phone videos with rotation metadata come out upright.
 Your original files are only read, never modified, moved or deleted.
 
 ## 5. Settings and defaults
@@ -227,9 +239,36 @@ compilations, frame rates and resolutions, audio/no audio and A/V sync against t
 times, cut detection and exclusion of unsuitable footage, footage reuse prevention across
 compilations and runs, watermark rendering/visibility/verification (including rejecting a wrong
 or missing watermark), cancellation and resuming, corrupt/empty/audio-only/truncated inputs,
-the GUI (offscreen) and the command line. Results: [`docs/test-results`](docs/test-results).
+HDR (PQ and HLG) and other codecs/containers (HEVC/MOV, VP9+Opus/WebM, MJPEG+PCM/AVI,
+interlaced H.264, files with cover art), the GUI (offscreen) and the command line.
 
-## 9. Project layout
+Results are in [`docs/test-results`](docs/test-results): the full suite passes on Linux and
+on the Windows build machine (`pytest-linux.txt`, `pytest-windows.txt`, JUnit XML), and
+`windows-packaging-and-install-log.txt` shows the packaged `.exe` and the installed program
+each processing a test video with every verification check passing. A sample compilation,
+its report and a contact sheet are in [`docs/sample-output`](docs/sample-output).
+
+## 9. What has and has not been verified
+
+* **Verified automatically on Windows** (GitHub Actions `windows-latest`, Windows Server):
+  the whole test suite; building the `.exe`; the packaged `.exe` starting its window and
+  completing a full self-test (analysis, rendering, all verification checks) with the bundled
+  FFmpeg; building the installer; silent installation, running the installed program's
+  self-test, and uninstalling.
+* **Not verified:** I could not run the program on a physical Windows 10/11 laptop with a
+  monitor, or on your own videos. All automated tests use synthetic videos with known cuts,
+  motion, audio and timing, because no real footage was available to me.
+* **Cut detection** is automatic image analysis, not human judgement. On the test material it
+  found every hard cut, jump cut, dissolve and fade, with no false cuts in continuous camera
+  motion. A very subtle reframe of a nearly featureless background (≈3 % shift) can still be
+  missed at the default *High* setting — use *Maximum* for heavily edited videos.
+* **"Interesting action / clear subject"** is approximated by motion (optical flow),
+  sharpness, exposure and contrast. The program does not understand what is in the picture.
+* **Watermark text check** compares the exact rendered letter shapes (pixel pattern) in the
+  output with the expected text, rather than using OCR.
+* The program is **not code-signed**, so SmartScreen shows a warning on first start.
+
+## 10. Project layout
 
 ```
 src/vcm/            application package
@@ -248,7 +287,7 @@ packaging/          PyInstaller spec, Inno Setup script, FFmpeg download, licenc
 resources/          font, face-detection model, icons
 ```
 
-## 10. Licences
+## 11. Licences
 
 Video Compilation Maker is MIT-licensed. It bundles FFmpeg (GPL v3), Qt/PySide6 (LGPL v3),
 OpenCV (Apache 2.0), NumPy (BSD), Pillow (MIT-CMU), the Poppins font (OFL 1.1) and the YuNet

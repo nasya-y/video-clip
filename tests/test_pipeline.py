@@ -267,3 +267,52 @@ def test_file_with_cover_art_stream(videos, tmp_path):
     s = run([out], tmp_path / "o")
     assert not s.errors, s.errors
     assert load_report(tmp_path / "o" / "with cover")["compilations_completed"] == 1
+
+
+@pytest.mark.parametrize("trc", ["smpte2084", "arib-std-b67"])
+def test_hdr_source_is_tone_mapped(videos, tmp_path, trc):
+    """10-bit HEVC HDR (PQ like many cameras, HLG like iPhones) -> SDR H.264 that passes verification."""
+    import subprocess
+    from vcm.ffmpeg_tools import ffmpeg
+    src, gt = videos.get("for_hdr.mp4", two_shot(45.0), width=640, height=360, fps=30, seed=61)
+    hdr = tmp_path / f"hdr {trc}.mp4"
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx265",
+                        "-preset", "ultrafast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le",
+                        "-color_primaries", "bt2020", "-color_trc", trc, "-colorspace", "bt2020nc", "-tag:v", "hvc1",
+                        "-c:a", "copy", str(hdr)], capture_output=True, text=True)
+    if r.returncode != 0 and "libx265" in r.stderr:
+        pytest.skip("this FFmpeg build has no libx265 encoder")
+    assert r.returncode == 0, r.stderr
+    assert probe(str(hdr)).is_hdr
+    s = run([hdr], tmp_path / "out")
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / "out" / hdr.stem)
+    assert rep["compilations_completed"] == 1
+    assert rep["output_format"]["hdr_tonemapped"] is True
+    assert rep["compilations"][0]["verification"]["passed"]
+    out = probe(str(tmp_path / "out" / hdr.stem / "Compilation 1.mp4"))
+    assert out.video_codec == "h264" and out.pix_fmt == "yuv420p" and out.color_transfer == "bt709"
+
+
+@pytest.mark.parametrize("ext,vargs,aargs", [
+    (".webm", ["-c:v", "libvpx-vp9", "-b:v", "1M", "-deadline", "realtime", "-cpu-used", "8"], ["-c:a", "libopus"]),
+    (".avi", ["-c:v", "mjpeg", "-q:v", "3"], ["-c:a", "pcm_s16le"]),
+    (".mov", ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-tag:v", "hvc1"],
+     ["-c:a", "aac"]),
+])
+def test_other_codecs_and_containers(videos, tmp_path, ext, vargs, aargs):
+    import subprocess
+    from vcm.ffmpeg_tools import ffmpeg
+    src, gt = videos.get("for_codecs.mp4", two_shot(45.0), width=480, height=270, fps=25, seed=71)
+    out = tmp_path / f"codec test{ext}"
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src, *vargs, *aargs, str(out)],
+                       capture_output=True, text=True)
+    if r.returncode != 0 and ("Unknown encoder" in r.stderr or "not found" in r.stderr):
+        pytest.skip(f"encoder not available in this FFmpeg build: {r.stderr[-200:]}")
+    assert r.returncode == 0, r.stderr
+    s = run([out], tmp_path / "o")
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / "o" / out.stem)
+    assert rep["compilations_completed"] == 1
+    assert rep["compilations"][0]["verification"]["passed"]
+    assert_valid_compilation(tmp_path / "o" / out.stem / "Compilation 1.mp4", True, (480, 270))

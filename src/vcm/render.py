@@ -191,17 +191,25 @@ class RenderJob:
             args += ["-ss", f"{seek:.6f}", "-t", f"{L + 1.0:.6f}", "-i", self.info.path]
         return args
 
-    def _video_chain(self, i: int, n_frames: int) -> str:
-        fmt = self.fmt
+    def picture_filters(self) -> list[str]:
+        """Filters that change how source pictures look (deinterlacing, HDR tone mapping).
+
+        Used by the renderer and by verification, so that the source is compared with the
+        output exactly as it was transformed."""
         parts = []
         if self.info.interlaced:
             parts.append("bwdif=mode=send_frame:deint=interlaced")
-        parts += ["settb=AVTB", f"setpts=(PTS-STARTPTS)/{self.speed:.10g}",
-                 f"fps={fmt.fps.numerator}/{fmt.fps.denominator}", f"trim=end_frame={n_frames}",
-                 "setpts=PTS-STARTPTS"]
-        if fmt.hdr_tonemap:
+        if self.fmt.hdr_tonemap:
             parts += ["zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709",
-                      "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv"]
+                      "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p"]
+        return parts
+
+    def _video_chain(self, i: int, n_frames: int) -> str:
+        fmt = self.fmt
+        parts = self.picture_filters()
+        parts += ["settb=AVTB", f"setpts=(PTS-STARTPTS)/{self.speed:.10g}",
+                  f"fps={fmt.fps.numerator}/{fmt.fps.denominator}", f"trim=end_frame={n_frames}",
+                  "setpts=PTS-STARTPTS"]
         if fmt.needs_scale:
             parts.append(f"scale={fmt.width}:{fmt.height}:flags=lanczos")
         parts += ["setsar=1", "format=yuv420p"]
