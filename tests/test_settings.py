@@ -45,6 +45,7 @@ def test_corrupt_file_gives_defaults(tmp_path: Path):
     assert load_settings(p) == Settings()
 
 
-def test_empty_watermark_is_rejected():
-    assert Settings(watermark_text="   ").validated().problems()
+def test_empty_watermark_text_means_no_watermark():
+    s = Settings(watermark_text="   ").validated()
+    assert s.watermark_text == "" and not s.problems()
     assert not Settings().problems()

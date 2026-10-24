@@ -277,6 +277,7 @@ class MainWindow(QMainWindow):
         g.addWidget(sec, r, 0, 1, 4)
         r += 1
         self.ed_text = QLineEdit()
+        self.ed_text.setPlaceholderText("Leave empty for no watermark")
         g.addWidget(lab("Text"), r, 0)
         g.addWidget(self.ed_text, r, 1, 1, 3)
         r += 1
@@ -605,7 +606,7 @@ class MainWindow(QMainWindow):
         busy = self._busy()
         has_inputs = self.video_list.count() > 0
         has_out = bool(self.out_edit.text().strip())
-        self.btn_start.setEnabled(not busy and has_inputs and has_out and bool(self.ed_text.text().strip()))
+        self.btn_start.setEnabled(not busy and has_inputs and has_out)
         self.btn_cancel.setEnabled(busy)
         for w in (self.btn_add, self.btn_folder, self.btn_remove, self.btn_clear, self.btn_out, self.out_edit,
                   self.btn_defaults, self.sp_speed, self.sp_clip, self.sp_count, self.cb_quality, self.ed_text,
@@ -700,7 +701,8 @@ class MainWindow(QMainWindow):
     def _add_result(self, info: dict) -> None:
         path = info.get("path", "")
         label = f"{Path(path).stem}  —  {Path(info.get('video', '')).name}\n" \
-                f"{info.get('duration', 0):.2f} s · watermark {info.get('colour', '')}, {info.get('position', '')}"
+                f"{info.get('duration', 0):.2f} s · " + (f"watermark {info['colour']}, {info.get('position', '')}"
+                                                   if info.get('colour') else "no watermark")
         it = QListWidgetItem(label)
         it.setData(Qt.UserRole, path)
         it.setToolTip(path)

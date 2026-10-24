@@ -516,8 +516,10 @@ class Pipeline:
         self._check_disk_space(folder, fmt)
         sub(0.0, "preparing preview")
         frames, clip_ids = preview_frames(job, 480, 4.0, cancel)
-        style = choose_style(frames, clip_ids, fmt.width, fmt.height, st.watermark_text, st.watermark_size,
-                             st.watermark_position, st.watermark_color_mode, st.watermark_custom_color)
+        # no watermark text: compilations are made without a watermark
+        style = (choose_style(frames, clip_ids, fmt.width, fmt.height, st.watermark_text, st.watermark_size,
+                              st.watermark_position, st.watermark_color_mode, st.watermark_custom_color)
+                 if st.watermark_text else None)
         thumb = self._save_thumbnail(frames, clip_ids, report, index)
         # every interval allocated to any other compilation of this source (done, rejected or planned)
         others = [(float(e["source_start_s"]), float(e["source_end_s"]))
@@ -530,13 +532,15 @@ class Pipeline:
         outline_scale, plate = 1.0, False
         for attempt in range(1, 5):
             cancel.check()
-            png = ws.file(f"wm-{index}-{attempt}.png")
-            img, _, _ = render_overlay(style)
-            img.save(png)
+            png = None
+            if style is not None:
+                png = ws.file(f"wm-{index}-{attempt}.png")
+                img, _, _ = render_overlay(style)
+                img.save(png)
             t0 = time.monotonic()
             sub(0.1, f"rendering (attempt {attempt})" if attempt > 1 else "rendering")
             try:
-                render(job, png, (style.x, style.y), tmp_out, st, f"Compilation {index}", cancel,
+                render(job, png, (style.x, style.y) if style else (0, 0), tmp_out, st, f"Compilation {index}", cancel,
                        progress=lambda f: sub(0.1 + 0.6 * f, f"rendering {int(f * 100)}%"))
             except FFmpegError as exc:
                 attempts.append({"attempt": attempt, "result": "render error", "error": str(exc), "details": exc.details})
@@ -566,8 +570,9 @@ class Pipeline:
                 report.mark_completed(index, entry)
                 return {"status": "completed", "path": str(final), "index": index,
                         "video": report.data.get("source", {}).get("path", info.path),
-                        "duration": job.duration, "thumbnail": thumb, "colour": style.fill_name,
-                        "position": style.position}
+                        "duration": job.duration, "thumbnail": thumb,
+                        "colour": style.fill_name if style else None,
+                        "position": style.position if style else None}
             attempts.append({"attempt": attempt, "result": "verification failed", "problems": ver.problems})
             self._log(f"Compilation {index} attempt {attempt} failed verification: {'; '.join(ver.problems)}",
                       logging.WARNING)
@@ -584,7 +589,7 @@ class Pipeline:
                 report.record_failed_attempt(index, "clip failed verification", ver.to_dict(), rejected)
                 _remove(tmp_out)
                 return {"status": "replan", "reason": f"{len(rejected)} clip(s) failed verification"}
-            if ver.watermark_failed:
+            if ver.watermark_failed and style is not None:
                 # make the watermark more visible and render again
                 excluded_colours.append(style.fill_name)
                 if attempt == 1:
@@ -626,7 +631,7 @@ class Pipeline:
         os.replace(part, final)
         return final
 
-    def _compilation_entry(self, index: int, final: Path, job: RenderJob, style: WatermarkStyle, ver,
+    def _compilation_entry(self, index: int, final: Path, job: RenderJob, style: Optional[WatermarkStyle], ver,
                            render_s: float, attempts: list, thumb: Optional[str]) -> dict:
         fb = job.boundaries
         fps = job.fmt.fps
@@ -636,8 +641,12 @@ class Pipeline:
             d.update({"clip": k + 1, "output_start_s": round(float(fb[k] / fps), 6),
                       "output_end_s": round(float(fb[k + 1] / fps), 6), "output_frames": fb[k + 1] - fb[k]})
             clips.append(d)
-        wm = style.report()
-        wm["text_height_fraction_of_frame"] = round((style.text_box[3] - style.text_box[1]) / min(job.fmt.width, job.fmt.height), 4)
+        if style is None:
+            wm = {"enabled": False, "note": "no watermark text was set"}
+        else:
+            wm = {"enabled": True, **style.report()}
+            wm["text_height_fraction_of_frame"] = round(
+                (style.text_box[3] - style.text_box[1]) / min(job.fmt.width, job.fmt.height), 4)
         return {
             "filename": final.name,
             "path": str(final),

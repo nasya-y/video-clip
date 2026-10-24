@@ -120,8 +120,6 @@ class Settings:
     def problems(self) -> list[str]:
         """Human readable reasons why processing cannot start with these settings."""
         out = []
-        if not self.watermark_text:
-            out.append("The watermark text is empty.")
         return out
 
     def processing_dict(self) -> dict[str, Any]:

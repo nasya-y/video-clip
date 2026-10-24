@@ -23,8 +23,8 @@ download one of:
 
 | File | What it is |
 |---|---|
-| `VideoCompilationMaker-Setup-1.0.3.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
-| `VideoCompilationMaker-1.0.3-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
+| `VideoCompilationMaker-Setup-1.0.4.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
+| `VideoCompilationMaker-1.0.4-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
 
 Everything is bundled (Python runtime, Qt, OpenCV, FFmpeg 9.0) — you do **not** need to
 install Python, FFmpeg or anything else. Windows 10 or 11, 64-bit. The installer is about
@@ -117,6 +117,8 @@ The verification step measures the speed in the finished file to prove it was ap
   the report under `capacity`.
 
 ### Watermark
+* **Optional.** Leave the watermark text empty to make compilations without any watermark
+  (the Start button no longer requires a text).
 * Exactly the configured text (default `onlyfans.com/nyraishtara`), in a bold clean font
   (Poppins Bold) with a dark outline and a soft drop shadow, large enough to read
   (about 6 % of the frame height by default), visible for the full 30 seconds.
@@ -240,7 +242,7 @@ python packaging\fetch_ffmpeg.py              # downloads the FFmpeg build into 
 python packaging\collect_licenses.py
 python -m PyInstaller packaging\vcm.spec --noconfirm --distpath dist --workpath build\pyinstaller
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\installer.iss
-# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.3.exe
+# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.4.exe
 ```
 
 Run from source without packaging: `pip install -e .` then `python -m vcm`

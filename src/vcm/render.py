@@ -313,17 +313,21 @@ def _color_args(fmt: OutputFormat) -> list[str]:
     return args
 
 
-def render(job: RenderJob, watermark_png: str, wm_xy: tuple[int, int], out_path: str, settings: Settings,
+def render(job: RenderJob, watermark_png: Optional[str], wm_xy: tuple[int, int], out_path: str, settings: Settings,
            title: str, cancel: Optional[CancelToken] = None,
            progress: Optional[Callable[[float], None]] = None) -> list[str]:
-    """Encode the compilation to ``out_path`` (MP4). Returns the FFmpeg command for the log."""
+    """Encode the compilation to ``out_path`` (MP4). Returns the FFmpeg command for the log.
+
+    ``watermark_png`` None renders without a watermark."""
     q = QUALITY_PRESETS[settings.quality]
     n = len(job.clips)
-    graph, vlabel, alabel = job.filter_graph(watermark=(n, wm_xy[0], wm_xy[1]))
+    wm = (n, wm_xy[0], wm_xy[1]) if watermark_png else None
+    graph, vlabel, alabel = job.filter_graph(watermark=wm)
     fps = job.fmt.fps
     cmd = [ffmpeg(), "-hide_banner", "-nostdin", "-y", "-loglevel", "error", "-nostats", "-progress", "pipe:1"]
     cmd += job.input_args()
-    cmd += ["-i", watermark_png]
+    if watermark_png:
+        cmd += ["-i", watermark_png]
     cmd += ["-filter_complex", graph, "-map", f"[{vlabel}]"]
     if alabel:
         cmd += ["-map", f"[{alabel}]"]

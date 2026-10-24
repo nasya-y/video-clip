@@ -394,3 +394,14 @@ def test_glass_effect(one_comp_video, tmp_path):
     rib = round(480 / GLASS_RIBS)
     corr = float(np.dot(x[:-rib], x[rib:]) / np.sqrt(np.dot(x[:-rib], x[:-rib]) * np.dot(x[rib:], x[rib:])))
     assert corr > 0.5, f"no rib pattern in the output (correlation {corr:.2f})"
+
+
+def test_no_watermark_when_text_is_empty(one_comp_video, tmp_path):
+    path, _ = one_comp_video
+    s = run([path], tmp_path, Settings(watermark_text=""))
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / Path(path).stem)
+    comp = rep["compilations"][0]
+    assert comp["status"] == "completed" and comp["verification"]["passed"]
+    assert comp["watermark"]["enabled"] is False
+    assert "no watermark" in comp["verification"]["checks"]["watermark"]["note"]

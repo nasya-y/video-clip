@@ -105,7 +105,7 @@ def _best_lag(a: np.ndarray, b: np.ndarray, max_lag: int) -> tuple[int, float]:
     return best
 
 
-def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sensitivity: str,
+def verify_compilation(job: RenderJob, out_path: str, style: Optional[WatermarkStyle], sensitivity: str,
                        other_intervals: Sequence[tuple[float, float]] = (),
                        cancel: Optional[CancelToken] = None,
                        progress: Optional[Callable[[float], None]] = None) -> VerificationResult:
@@ -149,9 +149,10 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
     aw, ah = analysis_size(fmt.width, fmt.height, VERIFY_SIDE)
     mask = np.ones((ah, aw), bool)
     sx, sy = aw / fmt.width, ah / fmt.height
-    x0, y0 = int(style.x * sx) - 2, int(style.y * sy) - 2
-    x1, y1 = int(np.ceil((style.x + style.width) * sx)) + 2, int(np.ceil((style.y + style.height) * sy)) + 2
-    mask[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = False
+    if style is not None:  # the watermark area is not compared with the source
+        x0, y0 = int(style.x * sx) - 2, int(style.y * sy) - 2
+        x1, y1 = int(np.ceil((style.x + style.width) * sx)) + 2, int(np.ceil((style.y + style.height) * sy)) + 2
+        mask[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = False
     reader = FrameReader(out_path, aw, ah, cancel=cancel)
     out_norm, out_times, out_luma, out_contrast = [], [], [], []
     for _, t, f in reader:
@@ -396,21 +397,24 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
     step(0.85)
 
     # ---------------------------------------------------------------- 5. watermark in every 2nd frame
-    wv = WatermarkVerifier(style, fmt.width, fmt.height)
-    cw, ch, cx, cy = wv.crop
-    try:
-        wreader = FrameReader(out_path, cw, ch, pix_fmt="rgb24", crop=(cw, ch, cx, cy), scale=False,
-                              pre_filters="select='not(mod(n\\,2))'", cancel=cancel,
-                              color_matrix="bt709" if fmt.colorspace == "bt709" else "bt601")
-        for _, _, crop in wreader:
-            wv.add(crop)
-        wres = wv.result()
-    except FFmpegError as exc:
-        wres = None
-        checks["watermark"] = {"passed": False, "error": str(exc)}
-    if wres is not None:
-        checks["watermark"] = {"passed": wres.passed, "text": style.text, **wres.to_dict()}
-        res.watermark_failed = not wres.passed
+    if style is None:
+        checks["watermark"] = {"passed": True, "note": "no watermark text was set, so no watermark was added"}
+    else:
+        wv = WatermarkVerifier(style, fmt.width, fmt.height)
+        cw, ch, cx, cy = wv.crop
+        try:
+            wreader = FrameReader(out_path, cw, ch, pix_fmt="rgb24", crop=(cw, ch, cx, cy), scale=False,
+                                  pre_filters="select='not(mod(n\\,2))'", cancel=cancel,
+                                  color_matrix="bt709" if fmt.colorspace == "bt709" else "bt601")
+            for _, _, crop in wreader:
+                wv.add(crop)
+            wres = wv.result()
+        except FFmpegError as exc:
+            wres = None
+            checks["watermark"] = {"passed": False, "error": str(exc)}
+        if wres is not None:
+            checks["watermark"] = {"passed": wres.passed, "text": style.text, **wres.to_dict()}
+            res.watermark_failed = not wres.passed
     step(1.0)
 
     # ---------------------------------------------------------------- verdict
