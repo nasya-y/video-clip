@@ -4,6 +4,7 @@
 #   VideoCompilationMaker-cli.exe  - the same program with a console (batch mode / self-test)
 # FFmpeg (vendor/ffmpeg/bin) and all resources are bundled; nothing needs to be installed separately.
 
+import re
 import sys
 from pathlib import Path
 
@@ -36,8 +37,26 @@ a = Analysis(
     noarchive=False,
 )
 
-# OpenCV ships its own FFmpeg DLL for VideoCapture, which this app never uses - drop it (~25 MB).
-a.binaries = [b for b in a.binaries if "opencv_videoio_ffmpeg" not in b[0].lower()]
+# Drop files the app never uses:
+#  * OpenCV's own FFmpeg DLL for VideoCapture (~25 MB),
+#  * second copies of the FFmpeg DLLs that dependency analysis of ffmpeg.exe/ffprobe.exe puts next
+#    to python312.dll - the executables load the copies in ffmpeg/bin (~190 MB),
+#  * Qt's software OpenGL renderer; the interface uses plain widgets (~21 MB).
+_FFMPEG_DLL = re.compile(r"^(avcodec|avformat|avfilter|avdevice|avutil|swresample|swscale|postproc)-\d+\.dll$", re.I)
+
+
+def _keep(entry) -> bool:
+    dest = entry[0].replace("\\", "/")
+    name = dest.rsplit("/", 1)[-1].lower()
+    if "opencv_videoio_ffmpeg" in name or name == "opengl32sw.dll":
+        return False
+    if "/" not in dest and _FFMPEG_DLL.match(name):
+        return False
+    return True
+
+
+a.binaries = [b for b in a.binaries if _keep(b)]
+a.datas = [d for d in a.datas if _keep(d)]
 
 pyz = PYZ(a.pure)
 

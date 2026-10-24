@@ -23,12 +23,11 @@ download one of:
 
 | File | What it is |
 |---|---|
-| `VideoCompilationMaker-Setup-1.0.0.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
-| `VideoCompilationMaker-1.0.0-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
+| `VideoCompilationMaker-Setup-1.0.1.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
+| `VideoCompilationMaker-1.0.1-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
 
 Everything is bundled (Python runtime, Qt, OpenCV, FFmpeg 9.0) — you do **not** need to
-install Python, FFmpeg or anything else. Windows 10 or 11, 64-bit. The installer is about
-165 MB and needs about 610 MB of disk space once installed.
+install Python, FFmpeg or anything else. Windows 10 or 11, 64-bit.
 
 The same files are also attached to every successful run of the
 [*Windows build and test* workflow](https://github.com/nasya-y/video-clip/actions/workflows/windows-build.yml)
@@ -218,7 +217,7 @@ python packaging\fetch_ffmpeg.py              # downloads the FFmpeg build into 
 python packaging\collect_licenses.py
 python -m PyInstaller packaging\vcm.spec --noconfirm --distpath dist --workpath build\pyinstaller
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\installer.iss
-# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.0.exe
+# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.1.exe
 ```
 
 Run from source without packaging: `pip install -e .` then `python -m vcm`
