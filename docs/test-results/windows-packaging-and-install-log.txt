@@ -1,6 +1,6 @@
-# Excerpt of workflow run https://github.com/nasya-y/video-clip/actions/runs/40044519071 (release v1.0.0):
+# Excerpt of workflow run https://github.com/nasya-y/video-clip/actions/runs/40047408225 (release v1.0.1):
 # PyInstaller build, packaged .exe self-test + GUI start, Inno Setup installer build,
-# silent install -> installed app self-test -> uninstall.
+# silent install -> installed app self-test -> uninstall, then the result summary.
 ##[group]Run python packaging/collect_licenses.py
 python packaging/collect_licenses.py
 python -m PyInstaller packaging/vcm.spec --noconfirm --clean --distpath dist --workpath build/pyinstaller
@@ -9,7 +9,7 @@ Get-ChildItem dist/VideoCompilationMaker | Format-Table Name, Length
 shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 env:
   PYTHONUTF8: 1
-  VCM_VERSION: 1.0.0
+  VCM_VERSION: 1.0.1
   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
@@ -21,12 +21,12 @@ opencv-python-headless: 5 licence file(s) from package metadata
 pillow: 1 licence file(s) from package metadata
 PySide6-Essentials: 1 licence file(s) from package metadata
 shiboken6: 1 licence file(s) from package metadata
-301 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.9
-301 INFO: Python: 3.12.10
-325 INFO: Platform: Windows-2025Server-10.0.26100-SP0
-325 INFO: Python environment: C:\hostedtoolcache\windows\Python\3.12.10\x64
-333 INFO: Removing temporary files and cleaning cache in C:\Users\runneradmin\AppData\Local\pyinstaller
-335 INFO: Module search paths (PYTHONPATH):
+261 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.9
+261 INFO: Python: 3.12.10
+281 INFO: Platform: Windows-2025Server-10.0.26100-SP0
+281 INFO: Python environment: C:\hostedtoolcache\windows\Python\3.12.10\x64
+290 INFO: Removing temporary files and cleaning cache in C:\Users\runneradmin\AppData\Local\pyinstaller
+292 INFO: Module search paths (PYTHONPATH):
 ['D:\\a\\video-clip\\video-clip',
  'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python312.zip',
  'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\DLLs',
@@ -35,100 +35,100 @@ shiboken6: 1 licence file(s) from package metadata
  'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages',
  'D:\\a\\video-clip\\video-clip\\packaging',
  'D:\\a\\video-clip\\video-clip\\src']
-644 INFO: Appending 'datas' from .spec
-646 INFO: checking Analysis
-646 INFO: Building Analysis because Analysis-00.toc is non existent
-646 INFO: Looking for Python shared library...
-646 INFO: Using Python shared library: C:\hostedtoolcache\windows\Python\3.12.10\x64\python312.dll
-646 INFO: Running Analysis Analysis-00.toc
-646 INFO: Target bytecode optimization level: 0
-648 INFO: Initializing module dependency graph...
-648 INFO: Initializing module graph hook caches...
-664 INFO: Analyzing modules for base_library.zip ...
-1878 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-2233 INFO: Processing standard module hook 'hook-math.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-3483 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-4741 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-5276 INFO: Caching module dependency graph...
-5315 INFO: Analyzing D:\a\video-clip\video-clip\packaging\launcher.py
-5450 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-5470 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-5796 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-5796 INFO: SetuptoolsInfo: initializing cached setuptools info...
-6951 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-7244 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-7858 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-8254 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-8490 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-8580 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-9992 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-10096 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-10455 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-10629 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-10853 INFO: Processing standard module hook 'hook-cv2.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-11538 INFO: Processing standard module hook 'hook-PySide6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-11706 INFO: Processing standard module hook 'hook-shiboken6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-12332 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-15725 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-33969 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-38194 INFO: Processing module hooks (post-graph stage)...
-38505 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-38604 INFO: Performing binary vs. data reclassification (159 entries)
-38639 INFO: Looking for ctypes DLLs
-38665 INFO: Analyzing run-time hooks ...
-38669 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-38671 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-38673 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-38675 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-38678 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
-38680 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
-38695 INFO: Creating base_library.zip...
-38718 INFO: Looking for dynamic libraries
-39276 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\shiboken6', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\numpy.libs', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\cv2\\../../x64/vc17/bin']
-39276 INFO: Extra DLL search directories (PATH): ['C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\cv2\\../../x64/vc17/bin', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PySide6']
-41159 INFO: Warnings written to D:\a\video-clip\video-clip\build\pyinstaller\vcm\warn-vcm.txt
-41215 INFO: Graph cross-reference written to D:\a\video-clip\video-clip\build\pyinstaller\vcm\xref-vcm.html
-41245 INFO: checking PYZ
-41245 INFO: Building PYZ because PYZ-00.toc is non existent
-41245 INFO: Building PYZ (ZlibArchive) D:\a\video-clip\video-clip\build\pyinstaller\vcm\PYZ-00.pyz
-41821 INFO: Building PYZ (ZlibArchive) D:\a\video-clip\video-clip\build\pyinstaller\vcm\PYZ-00.pyz completed successfully.
-41842 INFO: checking PKG
-41842 INFO: Building PKG because PKG-00.toc is non existent
-41842 INFO: Building PKG (CArchive) VideoCompilationMaker.pkg
-41858 INFO: Building PKG (CArchive) VideoCompilationMaker.pkg completed successfully.
-41860 INFO: Bootloader C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
-41860 INFO: checking EXE
-41860 INFO: Building EXE because EXE-00.toc is non existent
-41860 INFO: Building EXE from EXE-00.toc
-41860 INFO: Copying bootloader EXE to D:\a\video-clip\video-clip\build\pyinstaller\vcm\VideoCompilationMaker.exe
-41862 INFO: Copying icon to EXE
-41864 INFO: Copying version information to EXE
-41870 INFO: Copying 0 resources to EXE
-41870 INFO: Embedding manifest in EXE
-41872 INFO: Appending PKG archive to EXE
-41874 INFO: Fixing EXE headers
-41958 INFO: Building EXE from EXE-00.toc completed successfully.
-41960 INFO: checking PKG
-41960 INFO: Building PKG because PKG-01.toc is non existent
-41960 INFO: Building PKG (CArchive) VideoCompilationMaker-cli.pkg
-41975 INFO: Building PKG (CArchive) VideoCompilationMaker-cli.pkg completed successfully.
-41977 INFO: Bootloader C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
-41977 INFO: checking EXE
-41977 INFO: Building EXE because EXE-01.toc is non existent
-41977 INFO: Building EXE from EXE-01.toc
-41977 INFO: Copying bootloader EXE to D:\a\video-clip\video-clip\build\pyinstaller\vcm\VideoCompilationMaker-cli.exe
-41979 INFO: Copying icon to EXE
-41981 INFO: Copying version information to EXE
-41985 INFO: Copying 0 resources to EXE
-41985 INFO: Embedding manifest in EXE
-41987 INFO: Appending PKG archive to EXE
-41989 INFO: Fixing EXE headers
-42093 INFO: Building EXE from EXE-01.toc completed successfully.
-42097 INFO: checking COLLECT
-42098 INFO: Building COLLECT because COLLECT-00.toc is non existent
-42098 INFO: Building COLLECT COLLECT-00.toc
-42580 INFO: Building COLLECT COLLECT-00.toc completed successfully.
-42587 INFO: Build complete! The results are available in: D:\a\video-clip\video-clip\dist
+537 INFO: Appending 'datas' from .spec
+541 INFO: checking Analysis
+541 INFO: Building Analysis because Analysis-00.toc is non existent
+541 INFO: Looking for Python shared library...
+541 INFO: Using Python shared library: C:\hostedtoolcache\windows\Python\3.12.10\x64\python312.dll
+541 INFO: Running Analysis Analysis-00.toc
+541 INFO: Target bytecode optimization level: 0
+541 INFO: Initializing module dependency graph...
+541 INFO: Initializing module graph hook caches...
+555 INFO: Analyzing modules for base_library.zip ...
+1371 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+1464 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+2562 INFO: Processing standard module hook 'hook-math.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+2724 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+4153 INFO: Caching module dependency graph...
+4182 INFO: Analyzing D:\a\video-clip\video-clip\packaging\launcher.py
+4293 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+4307 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+4551 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+4551 INFO: SetuptoolsInfo: initializing cached setuptools info...
+5524 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+5778 INFO: Processing standard module hook 'hook-webbrowser.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+6269 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+6584 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+6779 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+6892 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+8016 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+8098 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+8394 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+8549 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+8738 INFO: Processing standard module hook 'hook-cv2.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+9264 INFO: Processing standard module hook 'hook-PySide6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+9397 INFO: Processing standard module hook 'hook-shiboken6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+9890 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+12954 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+34588 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+40980 INFO: Processing module hooks (post-graph stage)...
+41279 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+41366 INFO: Performing binary vs. data reclassification (159 entries)
+41392 INFO: Looking for ctypes DLLs
+41411 INFO: Analyzing run-time hooks ...
+41415 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+41417 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+41419 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+41421 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+41421 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+41423 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PyInstaller\\hooks'
+41439 INFO: Creating base_library.zip...
+41457 INFO: Looking for dynamic libraries
+41964 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\shiboken6', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\numpy.libs', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\cv2\\../../x64/vc17/bin']
+41964 INFO: Extra DLL search directories (PATH): ['C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\cv2\\../../x64/vc17/bin', 'C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Lib\\site-packages\\PySide6']
+43592 INFO: Warnings written to D:\a\video-clip\video-clip\build\pyinstaller\vcm\warn-vcm.txt
+43642 INFO: Graph cross-reference written to D:\a\video-clip\video-clip\build\pyinstaller\vcm\xref-vcm.html
+43669 INFO: checking PYZ
+43669 INFO: Building PYZ because PYZ-00.toc is non existent
+43669 INFO: Building PYZ (ZlibArchive) D:\a\video-clip\video-clip\build\pyinstaller\vcm\PYZ-00.pyz
+44190 INFO: Building PYZ (ZlibArchive) D:\a\video-clip\video-clip\build\pyinstaller\vcm\PYZ-00.pyz completed successfully.
+44204 INFO: checking PKG
+44206 INFO: Building PKG because PKG-00.toc is non existent
+44206 INFO: Building PKG (CArchive) VideoCompilationMaker.pkg
+44220 INFO: Building PKG (CArchive) VideoCompilationMaker.pkg completed successfully.
+44222 INFO: Bootloader C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+44222 INFO: checking EXE
+44222 INFO: Building EXE because EXE-00.toc is non existent
+44222 INFO: Building EXE from EXE-00.toc
+44222 INFO: Copying bootloader EXE to D:\a\video-clip\video-clip\build\pyinstaller\vcm\VideoCompilationMaker.exe
+44224 INFO: Copying icon to EXE
+44226 INFO: Copying version information to EXE
+44229 INFO: Copying 0 resources to EXE
+44229 INFO: Embedding manifest in EXE
+44231 INFO: Appending PKG archive to EXE
+44233 INFO: Fixing EXE headers
+44293 INFO: Building EXE from EXE-00.toc completed successfully.
+44297 INFO: checking PKG
+44297 INFO: Building PKG because PKG-01.toc is non existent
+44297 INFO: Building PKG (CArchive) VideoCompilationMaker-cli.pkg
+44313 INFO: Building PKG (CArchive) VideoCompilationMaker-cli.pkg completed successfully.
+44315 INFO: Bootloader C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+44315 INFO: checking EXE
+44315 INFO: Building EXE because EXE-01.toc is non existent
+44315 INFO: Building EXE from EXE-01.toc
+44315 INFO: Copying bootloader EXE to D:\a\video-clip\video-clip\build\pyinstaller\vcm\VideoCompilationMaker-cli.exe
+44317 INFO: Copying icon to EXE
+44319 INFO: Copying version information to EXE
+44321 INFO: Copying 0 resources to EXE
+44321 INFO: Embedding manifest in EXE
+44323 INFO: Appending PKG archive to EXE
+44325 INFO: Fixing EXE headers
+44422 INFO: Building EXE from EXE-01.toc completed successfully.
+44426 INFO: checking COLLECT
+44426 INFO: Building COLLECT because COLLECT-00.toc is non existent
+44426 INFO: Building COLLECT COLLECT-00.toc
+44766 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+44770 INFO: Build complete! The results are available in: D:\a\video-clip\video-clip\dist
 
 Name                          Length
 ----                          ------
@@ -136,7 +136,7 @@ _internal
 VideoCompilationMaker-cli.exe 5338915
 VideoCompilationMaker.exe     5333795
 
-578 MB
+376 MB
 ##[group]Run $exe = "dist/VideoCompilationMaker/VideoCompilationMaker-cli.exe"
 $exe = "dist/VideoCompilationMaker/VideoCompilationMaker-cli.exe"
 & $exe --version
@@ -153,15 +153,15 @@ if (-not (Test-Path "test-results\screenshot-gui-windows.png")) { throw "GUI scr
 shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 env:
   PYTHONUTF8: 1
-  VCM_VERSION: 1.0.0
+  VCM_VERSION: 1.0.1
   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
 ##[endgroup]
-Video Compilation Maker 1.0.0
-INFO: Video Compilation Maker 1.0.0 - 1 video(s), output: D:\a\video-clip\video-clip\selftest-exe\output
+Video Compilation Maker 1.0.1
+INFO: Video Compilation Maker 1.0.1 - 1 video(s), output: D:\a\video-clip\video-clip\selftest-exe\output
 INFO: Using ffmpeg version n9.0.2-35-g9a9b70bb8c-20261023 Copyright (c) 2000-2026 the FFmpeg developers
 INFO: Video 1/1: D:\a\video-clip\video-clip\selftest-exe\source\Self test vid�o 01.mp4
 INFO: [  0%] Self test vid�o 01.mp4: reading file information
@@ -169,50 +169,47 @@ INFO: Self test vid�o 01.mp4: analysing the whole video (100.0 s)
 INFO: [  1%] Self test vid�o 01.mp4: analysing footage 3%
 INFO: [  2%] Self test vid�o 01.mp4: analysing footage 6%
 INFO: [  3%] Self test vid�o 01.mp4: analysing footage 10%
-INFO: [  4%] Self test vid�o 01.mp4: analysing footage 12%
+INFO: [  4%] Self test vid�o 01.mp4: analysing footage 11%
 INFO: [  5%] Self test vid�o 01.mp4: analysing footage 15%
-INFO: [  6%] Self test vid�o 01.mp4: analysing footage 17%
-INFO: [  7%] Self test vid�o 01.mp4: analysing footage 20%
-INFO: [  8%] Self test vid�o 01.mp4: analysing footage 24%
-INFO: [  9%] Self test vid�o 01.mp4: analysing footage 25%
-INFO: [ 10%] Self test vid�o 01.mp4: analysing footage 29%
+INFO: [  6%] Self test vid�o 01.mp4: analysing footage 18%
+INFO: [  7%] Self test vid�o 01.mp4: analysing footage 21%
+INFO: [  8%] Self test vid�o 01.mp4: analysing footage 23%
+INFO: [  9%] Self test vid�o 01.mp4: analysing footage 26%
+INFO: [ 10%] Self test vid�o 01.mp4: analysing footage 30%
 INFO: [ 11%] Self test vid�o 01.mp4: analysing footage 31%
 INFO: [ 12%] Self test vid�o 01.mp4: analysing footage 35%
 INFO: [ 13%] Self test vid�o 01.mp4: analysing footage 38%
-INFO: [ 14%] Self test vid�o 01.mp4: analysing footage 41%
-INFO: [ 15%] Self test vid�o 01.mp4: analysing footage 43%
+INFO: [ 14%] Self test vid�o 01.mp4: analysing footage 40%
+INFO: [ 15%] Self test vid�o 01.mp4: analysing footage 44%
 INFO: [ 16%] Self test vid�o 01.mp4: analysing footage 45%
 INFO: [ 17%] Self test vid�o 01.mp4: analysing footage 49%
-INFO: [ 18%] Self test vid�o 01.mp4: analysing footage 51%
+INFO: [ 18%] Self test vid�o 01.mp4: analysing footage 52%
 INFO: [ 19%] Self test vid�o 01.mp4: analysing footage 55%
-INFO: [ 20%] Self test vid�o 01.mp4: analysing footage 58%
+INFO: [ 20%] Self test vid�o 01.mp4: analysing footage 57%
 INFO: [ 21%] Self test vid�o 01.mp4: analysing footage 60%
-INFO: [ 22%] Self test vid�o 01.mp4: analysing footage 63%
-INFO: [ 23%] Self test vid�o 01.mp4: analysing footage 66%
-INFO: [ 24%] Self test vid�o 01.mp4: analysing footage 70%
-INFO: [ 25%] Self test vid�o 01.mp4: analysing footage 71%
+INFO: [ 22%] Self test vid�o 01.mp4: analysing footage 64%
+INFO: [ 23%] Self test vid�o 01.mp4: analysing footage 65%
+INFO: [ 24%] Self test vid�o 01.mp4: analysing footage 69%
+INFO: [ 25%] Self test vid�o 01.mp4: analysing footage 72%
 INFO: [ 26%] Self test vid�o 01.mp4: analysing footage 75%
 INFO: [ 27%] Self test vid�o 01.mp4: analysing footage 77%
 INFO: [ 28%] Self test vid�o 01.mp4: analysing footage 80%
-INFO: [ 29%] Self test vid�o 01.mp4: analysing footage 83%
-INFO: [ 30%] Self test vid�o 01.mp4: analysing footage 86%
-INFO: [ 31%] Self test vid�o 01.mp4: analysing footage 90%
-INFO: [ 32%] Self test vid�o 01.mp4: analysing footage 91%
+INFO: [ 29%] Self test vid�o 01.mp4: analysing footage 84%
+INFO: [ 30%] Self test vid�o 01.mp4: analysing footage 85%
+INFO: [ 31%] Self test vid�o 01.mp4: analysing footage 89%
+INFO: [ 32%] Self test vid�o 01.mp4: analysing footage 92%
 INFO: [ 33%] Self test vid�o 01.mp4: analysing footage 95%
-INFO: [ 34%] Self test vid�o 01.mp4: analysing footage 98%
-INFO: [ 35%] Self test vid�o 01.mp4: analysing footage 100%
-INFO: Self test vid�o 01.mp4: analysis done in 10.7 s - 3000 frames, 12 cuts, 94.2 s eligible
+INFO: [ 34%] Self test vid�o 01.mp4: analysing footage 97%
+INFO: Self test vid�o 01.mp4: analysis done in 8.7 s - 3000 frames, 12 cuts, 94.2 s eligible
 INFO: [ 41%] Self test vid�o 01.mp4: compilation 1 - rendering
-INFO: [ 45%] Self test vid�o 01.mp4: compilation 1 - rendering 11%
-INFO: [ 49%] Self test vid�o 01.mp4: compilation 1 - rendering 20%
-INFO: [ 53%] Self test vid�o 01.mp4: compilation 1 - rendering 29%
-INFO: [ 56%] Self test vid�o 01.mp4: compilation 1 - rendering 38%
-INFO: [ 60%] Self test vid�o 01.mp4: compilation 1 - rendering 47%
-INFO: [ 63%] Self test vid�o 01.mp4: compilation 1 - rendering 56%
-INFO: [ 67%] Self test vid�o 01.mp4: compilation 1 - rendering 65%
-INFO: [ 70%] Self test vid�o 01.mp4: compilation 1 - rendering 74%
-INFO: [ 74%] Self test vid�o 01.mp4: compilation 1 - rendering 83%
-INFO: [ 77%] Self test vid�o 01.mp4: compilation 1 - rendering 93%
+INFO: [ 46%] Self test vid�o 01.mp4: compilation 1 - rendering 13%
+INFO: [ 51%] Self test vid�o 01.mp4: compilation 1 - rendering 24%
+INFO: [ 55%] Self test vid�o 01.mp4: compilation 1 - rendering 35%
+INFO: [ 59%] Self test vid�o 01.mp4: compilation 1 - rendering 46%
+INFO: [ 63%] Self test vid�o 01.mp4: compilation 1 - rendering 57%
+INFO: [ 67%] Self test vid�o 01.mp4: compilation 1 - rendering 67%
+INFO: [ 72%] Self test vid�o 01.mp4: compilation 1 - rendering 79%
+INFO: [ 76%] Self test vid�o 01.mp4: compilation 1 - rendering 90%
 INFO: [ 80%] Self test vid�o 01.mp4: compilation 1 - rendering 100%
 INFO: [ 84%] Self test vid�o 01.mp4: compilation 1 - verifying 20%
 INFO: [ 85%] Self test vid�o 01.mp4: compilation 1 - verifying 25%
@@ -233,8 +230,8 @@ INFO: Self test vid�o 01.mp4: 1 new compilation(s), 1 in total. Remaining elig
 INFO: SELF-TEST PASSED
 {
   "app": "Video Compilation Maker",
-  "version": "1.0.0",
-  "started": "2026-10-24 00:47:16",
+  "version": "1.0.1",
+  "started": "2026-10-24 01:16:38",
   "checks": {
     "created_at_least_one": true,
     "Compilation 1.mp4": {
@@ -285,7 +282,7 @@ INFO: SELF-TEST PASSED
   "passed": true
 }
 
-test-results\selftest-exe.log:4:2026-10-24 00:47:34,634 INFO    [MainThread] vcm.pipeline: Using ffmpeg version 
+test-results\selftest-exe.log:4:2026-10-24 01:16:54,367 INFO    [MainThread] vcm.pipeline: Using ffmpeg version 
 n9.0.2-35-g9a9b70bb8c-20261023 Copyright (c) 2000-2026 the FFmpeg developers
 
 ##[group]Run if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
@@ -296,7 +293,7 @@ Get-ChildItem dist -Filter *.exe | Format-Table Name, Length
 shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 env:
   PYTHONUTF8: 1
-  VCM_VERSION: 1.0.0
+  VCM_VERSION: 1.0.1
   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
@@ -412,11 +409,6 @@ Creating setup files
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\api-ms-win-crt-string-l1-1-0.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\api-ms-win-crt-time-l1-1-0.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\api-ms-win-crt-utility-l1-1-0.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\avcodec-63.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\avdevice-63.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\avfilter-12.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\avformat-63.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\avutil-61.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\base_library.zip
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\libcrypto-3.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\libffi-8.dll
@@ -425,8 +417,6 @@ Creating setup files
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\python3.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\python312.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\select.pyd
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\swresample-7.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\swscale-10.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\ucrtbase.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\unicodedata.pyd
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\VCRUNTIME140.dll
@@ -536,7 +526,6 @@ Creating setup files
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\MSVCP140.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\MSVCP140_1.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\MSVCP140_2.dll
-   Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\opengl32sw.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\pyside6.abi3.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\Qt6Core.dll
    Compressing: D:\a\video-clip\video-clip\packaging\..\dist\VideoCompilationMaker\_internal\PySide6\Qt6Gui.dll
@@ -681,12 +670,12 @@ Creating setup files
    Updating manifest (Setup.exe)
 
 
-Successful compile (119.390 sec). Resulting Setup program filename is:
-D:\a\video-clip\video-clip\dist\VideoCompilationMaker-Setup-1.0.0.exe
+Successful compile (91.765 sec). Resulting Setup program filename is:
+D:\a\video-clip\video-clip\dist\VideoCompilationMaker-Setup-1.0.1.exe
 
 Name                                     Length
 ----                                     ------
-VideoCompilationMaker-Setup-1.0.0.exe 163985203
+VideoCompilationMaker-Setup-1.0.1.exe 105497512
 
 ##[group]Run $setup = "dist\VideoCompilationMaker-Setup-$env:VCM_VERSION.exe"
 $setup = "dist\VideoCompilationMaker-Setup-$env:VCM_VERSION.exe"
@@ -706,14 +695,14 @@ if (Test-Path "$dir\VideoCompilationMaker.exe") { throw "uninstaller did not rem
 shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
 env:
   PYTHONUTF8: 1
-  VCM_VERSION: 1.0.0
+  VCM_VERSION: 1.0.1
   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
 ##[endgroup]
-INFO: Video Compilation Maker 1.0.0 - 1 video(s), output: D:\a\video-clip\video-clip\selftest-installed\output
+INFO: Video Compilation Maker 1.0.1 - 1 video(s), output: D:\a\video-clip\video-clip\selftest-installed\output
 INFO: Using ffmpeg version n9.0.2-35-g9a9b70bb8c-20261023 Copyright (c) 2000-2026 the FFmpeg developers
 INFO: Video 1/1: D:\a\video-clip\video-clip\selftest-installed\source\Self test vid�o 01.mp4
 INFO: [  0%] Self test vid�o 01.mp4: reading file information
@@ -727,44 +716,41 @@ INFO: [  6%] Self test vid�o 01.mp4: analysing footage 18%
 INFO: [  7%] Self test vid�o 01.mp4: analysing footage 21%
 INFO: [  8%] Self test vid�o 01.mp4: analysing footage 23%
 INFO: [  9%] Self test vid�o 01.mp4: analysing footage 26%
-INFO: [ 10%] Self test vid�o 01.mp4: analysing footage 29%
-INFO: [ 11%] Self test vid�o 01.mp4: analysing footage 32%
+INFO: [ 10%] Self test vid�o 01.mp4: analysing footage 30%
+INFO: [ 11%] Self test vid�o 01.mp4: analysing footage 31%
 INFO: [ 12%] Self test vid�o 01.mp4: analysing footage 35%
 INFO: [ 13%] Self test vid�o 01.mp4: analysing footage 38%
 INFO: [ 14%] Self test vid�o 01.mp4: analysing footage 41%
-INFO: [ 15%] Self test vid�o 01.mp4: analysing footage 43%
+INFO: [ 15%] Self test vid�o 01.mp4: analysing footage 44%
 INFO: [ 16%] Self test vid�o 01.mp4: analysing footage 45%
 INFO: [ 17%] Self test vid�o 01.mp4: analysing footage 49%
 INFO: [ 18%] Self test vid�o 01.mp4: analysing footage 52%
 INFO: [ 19%] Self test vid�o 01.mp4: analysing footage 55%
-INFO: [ 20%] Self test vid�o 01.mp4: analysing footage 58%
+INFO: [ 20%] Self test vid�o 01.mp4: analysing footage 57%
 INFO: [ 21%] Self test vid�o 01.mp4: analysing footage 60%
-INFO: [ 22%] Self test vid�o 01.mp4: analysing footage 63%
-INFO: [ 23%] Self test vid�o 01.mp4: analysing footage 66%
-INFO: [ 24%] Self test vid�o 01.mp4: analysing footage 70%
-INFO: [ 25%] Self test vid�o 01.mp4: analysing footage 71%
+INFO: [ 22%] Self test vid�o 01.mp4: analysing footage 64%
+INFO: [ 23%] Self test vid�o 01.mp4: analysing footage 65%
+INFO: [ 24%] Self test vid�o 01.mp4: analysing footage 69%
+INFO: [ 25%] Self test vid�o 01.mp4: analysing footage 72%
 INFO: [ 26%] Self test vid�o 01.mp4: analysing footage 75%
 INFO: [ 27%] Self test vid�o 01.mp4: analysing footage 77%
 INFO: [ 28%] Self test vid�o 01.mp4: analysing footage 80%
 INFO: [ 29%] Self test vid�o 01.mp4: analysing footage 84%
 INFO: [ 30%] Self test vid�o 01.mp4: analysing footage 85%
 INFO: [ 31%] Self test vid�o 01.mp4: analysing footage 89%
-INFO: [ 32%] Self test vid�o 01.mp4: analysing footage 91%
+INFO: [ 32%] Self test vid�o 01.mp4: analysing footage 92%
 INFO: [ 33%] Self test vid�o 01.mp4: analysing footage 95%
-INFO: [ 34%] Self test vid�o 01.mp4: analysing footage 98%
-INFO: [ 35%] Self test vid�o 01.mp4: analysing footage 100%
-INFO: Self test vid�o 01.mp4: analysis done in 10.5 s - 3000 frames, 12 cuts, 94.2 s eligible
+INFO: [ 34%] Self test vid�o 01.mp4: analysing footage 97%
+INFO: Self test vid�o 01.mp4: analysis done in 8.5 s - 3000 frames, 12 cuts, 94.2 s eligible
 INFO: [ 41%] Self test vid�o 01.mp4: compilation 1 - rendering
-INFO: [ 45%] Self test vid�o 01.mp4: compilation 1 - rendering 11%
-INFO: [ 49%] Self test vid�o 01.mp4: compilation 1 - rendering 20%
-INFO: [ 53%] Self test vid�o 01.mp4: compilation 1 - rendering 29%
-INFO: [ 56%] Self test vid�o 01.mp4: compilation 1 - rendering 38%
-INFO: [ 59%] Self test vid�o 01.mp4: compilation 1 - rendering 47%
-INFO: [ 63%] Self test vid�o 01.mp4: compilation 1 - rendering 55%
-INFO: [ 66%] Self test vid�o 01.mp4: compilation 1 - rendering 64%
-INFO: [ 70%] Self test vid�o 01.mp4: compilation 1 - rendering 73%
-INFO: [ 73%] Self test vid�o 01.mp4: compilation 1 - rendering 83%
-INFO: [ 77%] Self test vid�o 01.mp4: compilation 1 - rendering 91%
+INFO: [ 47%] Self test vid�o 01.mp4: compilation 1 - rendering 14%
+INFO: [ 51%] Self test vid�o 01.mp4: compilation 1 - rendering 24%
+INFO: [ 55%] Self test vid�o 01.mp4: compilation 1 - rendering 35%
+INFO: [ 59%] Self test vid�o 01.mp4: compilation 1 - rendering 46%
+INFO: [ 63%] Self test vid�o 01.mp4: compilation 1 - rendering 56%
+INFO: [ 67%] Self test vid�o 01.mp4: compilation 1 - rendering 67%
+INFO: [ 71%] Self test vid�o 01.mp4: compilation 1 - rendering 77%
+INFO: [ 76%] Self test vid�o 01.mp4: compilation 1 - rendering 89%
 INFO: [ 80%] Self test vid�o 01.mp4: compilation 1 - rendering 100%
 INFO: [ 84%] Self test vid�o 01.mp4: compilation 1 - verifying 20%
 INFO: [ 85%] Self test vid�o 01.mp4: compilation 1 - verifying 25%
@@ -785,3 +771,176 @@ INFO: Self test vid�o 01.mp4: 1 new compilation(s), 1 in total. Remaining elig
 INFO: SELF-TEST PASSED
 installed self-test passed
 uninstall OK
+
+===== packaged exe self-test (D:\a\video-clip\video-clip\selftest-exe\selftest_result.json) =====
+{
+  "app": "Video Compilation Maker",
+  "version": "1.0.1",
+  "started": "2026-10-24 01:16:38",
+  "checks": {
+    "created_at_least_one": true,
+    "Compilation 1.mp4": {
+      "verification_passed": true,
+      "duration_s": 30.0,
+      "duration_ok": true,
+      "video": "h264",
+      "audio": "aac"
+    }
+  },
+  "ground_truth_cuts": [
+    7.549412218411449,
+    8.82439334927624,
+    20.257737862123566,
+    35.042686413971836,
+    43.40967303492117,
+    54.99106980607526,
+    58.49472515104068,
+    66.8327783740314,
+    79.76696073251989,
+    90.9023425319633
+  ],
+  "ground_truth_transitions": [
+    [
+      26.10357518878177,
+      26.703575188781773
+    ],
+    [
+      44.95235848899681,
+      45.55235848899681
+    ],
+    [
+      72.90280717132366,
+      73.50280717132365
+    ],
+    [
+      98.7803175182388,
+      99.3803175182388
+    ]
+  ],
+  "compilations": [
+    "D:\\a\\video-clip\\video-clip\\selftest-exe\\output\\Self test vidéo 01\\Compilation 1.mp4"
+  ],
+  "errors": [],
+  "report_files": [
+    "D:\\a\\video-clip\\video-clip\\selftest-exe\\output\\Self test vidéo 01\\Compilation report.json"
+  ],
+  "passed": true
+}
+===== installed app self-test (D:\a\video-clip\video-clip\selftest-installed\selftest_result.json) =====
+{
+  "app": "Video Compilation Maker",
+  "version": "1.0.1",
+  "started": "2026-10-24 01:19:09",
+  "checks": {
+    "created_at_least_one": true,
+    "Compilation 1.mp4": {
+      "verification_passed": true,
+      "duration_s": 30.0,
+      "duration_ok": true,
+      "video": "h264",
+      "audio": "aac"
+    }
+  },
+  "ground_truth_cuts": [
+    7.549412218411449,
+    8.82439334927624,
+    20.257737862123566,
+    35.042686413971836,
+    43.40967303492117,
+    54.99106980607526,
+    58.49472515104068,
+    66.8327783740314,
+    79.76696073251989,
+    90.9023425319633
+  ],
+  "ground_truth_transitions": [
+    [
+      26.10357518878177,
+      26.703575188781773
+    ],
+    [
+      44.95235848899681,
+      45.55235848899681
+    ],
+    [
+      72.90280717132366,
+      73.50280717132365
+    ],
+    [
+      98.7803175182388,
+      99.3803175182388
+    ]
+  ],
+  "compilations": [
+    "D:\\a\\video-clip\\video-clip\\selftest-installed\\output\\Self test vidéo 01\\Compilation 1.mp4"
+  ],
+  "errors": [],
+  "report_files": [
+    "D:\\a\\video-clip\\video-clip\\selftest-installed\\output\\Self test vidéo 01\\Compilation report.json"
+  ],
+  "passed": true
+}
+===== FFmpeg build (D:\a\video-clip\video-clip\vendor\ffmpeg\BUILD_INFO.json) =====
+{
+  "asset": "ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip",
+  "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip",
+  "release": "latest",
+  "published_at": "2026-10-23T13:25:09Z",
+  "sha256": "7b1a5f4d679565fc966b6edaf2466ad44526bee79bb2af911f321b111b90e56b",
+  "files": [
+    "avcodec-63.dll",
+    "avdevice-63.dll",
+    "avfilter-12.dll",
+    "avformat-63.dll",
+    "avutil-61.dll",
+    "ffmpeg.exe",
+    "ffprobe.exe",
+    "swresample-7.dll",
+    "swscale-10.dll"
+  ],
+  "source_code": "https://github.com/FFmpeg/FFmpeg (version as reported by ffmpeg -version); build scripts and the exact library versions: https://github.com/BtbN/FFmpeg-Builds"
+}
+===== dist =====
+VideoCompilationMaker: 394.6 MB
+VideoCompilationMaker-1.0.1-portable-win64.zip: 161.8 MB
+VideoCompilationMaker-Setup-1.0.1.exe: 105.5 MB
+===== largest files in the packaged app =====
+   119.1 MB  _internal\ffmpeg\bin\avcodec-63.dll
+    74.7 MB  _internal\cv2\cv2.pyd
+    37.3 MB  _internal\ffmpeg\bin\avfilter-12.dll
+    23.0 MB  _internal\ffmpeg\bin\avformat-63.dll
+    20.6 MB  _internal\numpy.libs\libscipy_openblas64_-ed4f167a5330424524f45258e7ca2c8d.dll
+    10.5 MB  _internal\PySide6\Qt6Core.dll
+     9.7 MB  _internal\PySide6\Qt6Gui.dll
+     7.9 MB  _internal\PIL\_avif.cp312-win_amd64.pyd
+     6.9 MB  _internal\python312.dll
+     6.5 MB  _internal\PySide6\Qt6Widgets.dll
+     5.3 MB  VideoCompilationMaker-cli.exe
+     5.3 MB  VideoCompilationMaker.exe
+     5.2 MB  _internal\libcrypto-3.dll
+     4.9 MB  _internal\ffmpeg\bin\avdevice-63.dll
+     4.9 MB  _internal\PySide6\QtWidgets.pyd
+     3.9 MB  _internal\PySide6\QtGui.pyd
+     3.9 MB  _internal\numpy\_core\_multiarray_umath.cp312-win_amd64.pyd
+     3.5 MB  _internal\PySide6\QtCore.pyd
+     3.0 MB  _internal\ffmpeg\bin\avutil-61.dll
+     2.7 MB  _internal\PIL\_imaging.cp312-win_amd64.pyd
+     2.3 MB  _internal\ffmpeg\bin\swscale-10.dll
+     2.3 MB  _internal\PIL\_imagingft.cp312-win_amd64.pyd
+     1.8 MB  _internal\PySide6\Qt6Network.dll
+     1.4 MB  _internal\ucrtbase.dll
+     1.3 MB  _internal\base_library.zip
+===== Compilation 1.mp4: status=completed verification_passed=True
+  container: PASS
+  decode: PASS
+  no_black_frames: PASS
+  clip_count: PASS
+  clip_durations: PASS
+  total_duration: PASS
+  speed_applied_once: PASS
+  clips_match_planned_source: PASS
+  no_internal_cuts: PASS
+  chronological_order: PASS
+  no_footage_reuse: PASS
+  audio: PASS
+  watermark: PASS
