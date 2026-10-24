@@ -7,6 +7,8 @@
 * **Camcorder and other index-less files fixed.** In MPEG transport streams (camcorder `.MTS`/`.M2TS`, `.TS`) and program streams (`.MPG`/`.VOB`) seeking could land more than a second away from the planned clip. Verification caught this, but then set the "faulty" footage aside, so such files gave far fewer compilations than possible (often none). These files are now read through a temporary copy with a seek index (streams copied, nothing re-encoded), and every other file gets a quick seek check that triggers the same copy if needed.
 * **"At most N possible".** The results screen and the report (`capacity`) now say how many compilations the whole video can give and why: usable footage after cuts and transitions, how many 3.9 s clips it holds, and any footage set aside by verification. The report also lists the camera shakes that were not counted as cuts.
 
+Measured on synthetic test videos with known ground truth: a 2-minute walking/running video with room for exactly 3 compilations gave 2 with 1.0.1 (camera shake was taken for 30+ cuts) and gives 3 with 1.0.2; on 16 shaky test videos (24–60 fps) 1.0.2 finds every real cut and no false ones. The full test suite (146 tests) passes on Windows and Linux.
+
 Analysis results cached by earlier versions are recomputed automatically.
 
 Turns your local videos into 30-second highlight compilations automatically — completely offline.
