@@ -1,6 +1,6 @@
 ## Video Compilation Maker 1.0.2 for Windows (64-bit)
 
-**Changes since 1.0.2**
+**Changes since 1.0.1**
 
 * **Camera shake is no longer mistaken for a scene cut.** Handheld wobble, walking and running footage, bumps and motion blur used to be detected as cuts, which chopped up the usable footage. The program now measures how the whole picture moved (shift, rotation, zoom) and treats a change as shake when undoing that movement gives the same picture and the movement looks physical (blur, spread over several frames, or the camera swinging back). Real jump cuts — time skips, reframes and zoom punch-ins, also inside shaky footage — are still found.
 * **More compilations per video.** Fewer false cuts means more usable footage. In addition, a clip that fails verification no longer counts against a fixed limit of six re-plans per video (after which processing of the video stopped early); the program now keeps replacing failed clips until the footage is used up, and a check that fails for most clips at once no longer throws that footage away. Verification's independent cut re-check now looks at the footage at the same resolution and with the same lead-in as the main analysis, so the two agree.
