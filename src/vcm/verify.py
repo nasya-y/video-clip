@@ -29,7 +29,7 @@ from typing import Callable, Optional, Sequence
 import cv2
 import numpy as np
 
-from .analysis import AnalysisResult, _FeatureExtractor, finalize
+from .analysis import ANALYSIS_MAX_SIDE, AnalysisResult, _FeatureExtractor, finalize
 from .ffmpeg_tools import (CancelToken, FFmpegError, FrameReader, analysis_size, probe, read_audio, run, ffmpeg,
                            tail)
 from .render import AUDIO_RATE, RenderJob, sample_boundaries
@@ -38,7 +38,11 @@ from .watermark import WatermarkStyle, WatermarkVerifier
 
 log = logging.getLogger(__name__)
 
-VERIFY_SIDE = 160
+# Same resolution as the main analysis, so the independent cut re-check judges the footage
+# the way the analysis did.
+VERIFY_SIDE = ANALYSIS_MAX_SIDE
+# Footage decoded before each clip so the re-check has the same context as the analysis.
+RECHECK_LEAD_S = 1.0
 ENV_RATE = 16000
 ENV_HOP = 160  # 10 ms
 
@@ -184,7 +188,7 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
         if cancel is not None:
             cancel.check()
         t_k = float(job.an.t[clip.start_idx])
-        start = max(0.0, t_k - 0.35)
+        start = max(0.0, t_k - RECHECK_LEAD_S)
         window = D * S * S + 0.7 + (t_k - start)
         src_reader = FrameReader(job.info.path, aw, ah, start=start, duration=window, cancel=cancel,
                                  stream=job.info.video_stream_index,

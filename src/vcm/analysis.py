@@ -35,11 +35,14 @@ from .paths import cache_dir
 
 log = logging.getLogger(__name__)
 
-ANALYSIS_VERSION = 4
+ANALYSIS_VERSION = 7
 ANALYSIS_MAX_SIDE = 192
 
 RAW_FIELDS = ("t", "luma", "contrast", "sharp", "dark", "bright", "content", "pix", "res",
-              "res_p", "mag", "mag_p", "gmag", "lmag")
+              "res_p", "mag", "mag_p", "gmag", "lmag",
+              # camera motion between consecutive frames (robust similarity transform)
+              "cam_dx", "cam_dy", "cam_rot", "cam_scale", "cam_inl", "cam_chg", "cam_chg0")
+_CAM_FIELDS = ("cam_dx", "cam_dy", "cam_rot", "cam_scale", "cam_inl", "cam_chg", "cam_chg0")
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,7 @@ class AnalysisResult:
     durations: np.ndarray = field(default_factory=lambda: np.zeros(0))
     cut_before: np.ndarray = field(default_factory=lambda: np.zeros(0, bool))
     cut_reason: list = field(default_factory=list)
+    shake_suppressed: list = field(default_factory=list)   # candidate cuts judged to be camera shake
     transition: np.ndarray = field(default_factory=lambda: np.zeros(0, bool))
     black: np.ndarray = field(default_factory=lambda: np.zeros(0, bool))
     frozen: np.ndarray = field(default_factory=lambda: np.zeros(0, bool))
@@ -220,6 +224,19 @@ class _FeatureExtractor:
         gx, gy = np.meshgrid(np.arange(width, dtype=np.float32), np.arange(height, dtype=np.float32))
         self.gx, self.gy = gx, gy
         self.border = max(2, min(width, height) // 24)
+        # sample points for fitting the camera motion to the flow field
+        step = max(4, width // 16)
+        xs = np.arange(self.border + step // 2, width - self.border, step)
+        ys = np.arange(self.border + step // 2, height - self.border, step)
+        px, py = np.meshgrid(xs, ys)
+        self.pts_ix, self.pts_iy = px.ravel(), py.ravel()
+        self.pts = np.stack([self.pts_ix, self.pts_iy], axis=1).astype(np.float32)
+        mx, my = max(2, width // 10), max(2, height // 10)
+        self.central = (slice(my, height - my), slice(mx, width - mx))
+        self.hann = cv2.createHanningWindow((width, height), cv2.CV_32F)
+        self.ones = np.ones((height, width), np.float32)
+        self.identity = np.array([[1, 0, 0], [0, 1, 0]], np.float64)
+        self.prev_soft: Optional[np.ndarray] = None
         self.prev_gray: Optional[np.ndarray] = None
         self.prev_blur: Optional[np.ndarray] = None
         self.prev_hsv: Optional[np.ndarray] = None
@@ -248,8 +265,9 @@ class _FeatureExtractor:
         c["sharp"].append(float(cv2.Laplacian(gray, cv2.CV_32F).var()))
         c["dark"].append(float(np.count_nonzero(gray < 16)) / gray.size)
         c["bright"].append(float(np.count_nonzero(gray > 245)) / gray.size)
+        soft = cv2.GaussianBlur(gray, (0, 0), 2.0).astype(np.float32)  # hides motion blur differences
         if self.prev_gray is None:
-            for k in ("content", "pix", "res", "res_p", "mag", "mag_p", "gmag", "lmag"):
+            for k in ("content", "pix", "res", "res_p", "mag", "mag_p", "gmag", "lmag") + _CAM_FIELDS:
                 c[k].append(0.0)
         else:
             dh = cv2.absdiff(hsv, self.prev_hsv)
@@ -271,8 +289,65 @@ class _FeatureExtractor:
             c["gmag"].append(float(np.hypot(mx, my)))
             lx, ly = fx - mx, fy - my
             c["lmag"].append(float(np.sqrt(lx * lx + ly * ly).mean()))
-        self.prev_gray, self.prev_blur, self.prev_hsv = gray, blur, hsv
+            for k, v in zip(_CAM_FIELDS, self._camera_motion(flow, self.prev_soft, soft)):
+                c[k].append(v)
+        self.prev_gray, self.prev_blur, self.prev_hsv, self.prev_soft = gray, blur, hsv, soft
         self._dissolve_step(blur)
+
+    def _aligned_change(self, prev_soft: np.ndarray, cur_soft: np.ndarray, M: np.ndarray) -> float:
+        """Share of the picture that still differs after undoing the camera motion M.
+
+        Compared on 8x8-pixel block averages, which motion blur and small alignment errors
+        hardly change, while a different picture (or a subject that jumped) does."""
+        h, w = cur_soft.shape
+        warped = cv2.warpAffine(prev_soft, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=0.0)
+        inside = cv2.warpAffine(self.ones, M, (w, h), flags=cv2.INTER_NEAREST, borderValue=0.0)
+        cs, ws, ins = cur_soft[self.central], warped[self.central], inside[self.central]
+        bw, bh = max(4, cs.shape[1] // 8), max(3, cs.shape[0] // 8)
+        cb = cv2.resize(cs, (bw, bh), interpolation=cv2.INTER_AREA)
+        wb = cv2.resize(ws, (bw, bh), interpolation=cv2.INTER_AREA)
+        ib = cv2.resize(ins, (bw, bh), interpolation=cv2.INTER_AREA)
+        valid = ib > 0.999
+        if valid.mean() < 0.5:
+            return 1.0
+        return float(np.mean(np.abs(cb[valid] - wb[valid]) > 12.0))
+
+    def _camera_motion(self, flow: np.ndarray, prev_soft: np.ndarray, cur_soft: np.ndarray) -> tuple:
+        """Fit shift + rotation + zoom of the whole picture to the flow field (RANSAC).
+
+        Returns (dx, dy as fractions of the frame width, rotation in degrees, log zoom,
+        share of flow vectors that follow the camera motion, share of the picture that
+        still differs after compensating the camera motion and motion blur, the same share
+        without compensating the camera motion)."""
+        w, h = self.w, self.h
+        f = flow[self.pts_iy, self.pts_ix]
+        M, inl = cv2.estimateAffinePartial2D(self.pts, self.pts + f, method=cv2.RANSAC,
+                                             ransacReprojThreshold=1.0, maxIters=120, confidence=0.98)
+        if M is None or inl is None:
+            M = self.identity
+            inl_ratio = 0.0
+        else:
+            inl_ratio = float(inl.mean())
+        chg0 = self._aligned_change(prev_soft, cur_soft, self.identity)
+        chg = self._aligned_change(prev_soft, cur_soft, M)
+        if chg > 0.04 and (inl_ratio < 0.6 or chg > 0.12):
+            # large or blurred jumps can defeat the flow; try a plain phase-correlation shift too
+            # (copies: phaseCorrelate may apply the window to its inputs in place)
+            (sx, sy), _ = cv2.phaseCorrelate(prev_soft.copy(), cur_soft.copy(), self.hann.copy())
+            for sgn in (1.0, -1.0):
+                T = np.array([[1, 0, sgn * sx], [0, 1, sgn * sy]], np.float64)
+                c2 = self._aligned_change(prev_soft, cur_soft, T)
+                if c2 < chg:
+                    chg, M = c2, T
+                    if c2 <= 0.05:  # a plain shift explains the picture
+                        inl_ratio = max(inl_ratio, 0.6)
+        cx, cy = w / 2.0, h / 2.0
+        nx = M[0, 0] * cx + M[0, 1] * cy + M[0, 2]
+        ny = M[1, 0] * cx + M[1, 1] * cy + M[1, 2]
+        scale = float(np.sqrt(abs(M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]))) or 1.0
+        rot = float(np.degrees(np.arctan2(M[1, 0], M[0, 0])))
+        return (float(nx - cx) / w, float(ny - cy) / w, rot, float(np.log(scale)), inl_ratio, chg,
+                max(chg0, chg))
 
     def _dissolve_step(self, blur: np.ndarray) -> None:
         """Detect cross-dissolves / fades: frame i-k is a blend of frames i-2k and i."""
@@ -321,12 +396,17 @@ class _FeatureExtractor:
 
 def analyze_video(info: MediaInfo, cancel: Optional[CancelToken] = None,
                   progress: Optional[Callable[[float], None]] = None,
-                  use_cache: bool = True, sensitivity: str = "high") -> AnalysisResult:
-    """Decode and analyse every frame of the source video."""
+                  use_cache: bool = True, sensitivity: str = "high",
+                  cache_id: Optional[str] = None) -> AnalysisResult:
+    """Decode and analyse every frame of the source video.
+
+    ``cache_id`` identifies the footage for the analysis cache (default: the file's
+    fingerprint); a temporary copy of a source passes the source's identity."""
     cache_file: Optional[Path] = None
     if use_cache:
         try:
-            key = hashlib.sha1(f"{file_fingerprint(info.path)}|{ANALYSIS_VERSION}|{ANALYSIS_MAX_SIDE}".encode()).hexdigest()
+            ident = cache_id or file_fingerprint(info.path)
+            key = hashlib.sha1(f"{ident}|{ANALYSIS_VERSION}|{ANALYSIS_MAX_SIDE}".encode()).hexdigest()
             cache_file = cache_dir() / f"analysis-{key}.npz"
             if cache_file.is_file():
                 res = AnalysisResult.load(cache_file)
@@ -372,7 +452,127 @@ def analyze_video(info: MediaInfo, cancel: Optional[CancelToken] = None,
     return finalize(result, sensitivity)
 
 
+def seeking_matches_analysis(info: MediaInfo, an: AnalysisResult,
+                             cancel: Optional[CancelToken] = None) -> bool:
+    """Check that seeking in the file lands on the frames the full analysis saw.
+
+    Rendering and verification seek to every clip and take the frames that follow; in files
+    without a usable seek index FFmpeg can land somewhere else.  A few short sections are
+    decoded with the renderer's seek rule and compared frame by frame (brightness, contrast,
+    sharpness) with the analysed frames from the requested one on.  Timestamps are not
+    compared: some containers report them relative to the seek point, which the renderer
+    allows for."""
+    n = an.n
+    if n < 120:
+        return True
+    r = an.raw
+    frame_dur = float(np.median(an.durations))
+    agree = total = 0
+    for frac in (0.3, 0.55, 0.8):
+        i0 = int(n * frac)
+        t0 = float(an.t[i0])
+        seek = max(0.0, t0 - 0.5 * min(t0 - float(an.t[i0 - 1]), 0.5))
+        reader = FrameReader(info.path, an.width, an.height, start=seek, duration=8 * frame_dur,
+                             stream=info.video_stream_index, cancel=cancel)
+        for k, (_, _, frame) in enumerate(reader):
+            j = i0 + k
+            if j >= n or k >= 6:
+                continue
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            sharp = float(cv2.Laplacian(gray, cv2.CV_32F).var())
+            total += 1
+            agree += (abs(float(gray.mean()) - float(r["luma"][j])) <= 0.5
+                      and abs(float(gray.std()) - float(r["contrast"][j])) <= 0.5
+                      and abs(sharp - float(r["sharp"][j])) <= 0.03 * float(r["sharp"][j]) + 0.5)
+    return total > 0 and agree >= 0.8 * total
+
+
 # --------------------------------------------------------------------------- decisions
+
+# Camera movement per frame (fraction of the frame width) above which a candidate cut is
+# checked for being camera shake rather than an edit.
+_SHAKE_MIN_MOTION = 0.006
+# Smallest instantaneous reframe (fraction of the width) treated as an edit rather than a
+# camera knock, per sensitivity setting.
+_MIN_REFRAME = {"normal": 0.03, "high": 0.01, "maximum": 0.006}
+# An edit's reframe is at least this many times the camera's usual movement per frame around it.
+_REFRAME_VS_CAMERA = 10.0
+
+
+def _shake_filter(res: AnalysisResult, candidate: np.ndarray, fps: float,
+                  sensitivity: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Classify cut candidates that coincide with strong camera motion.
+
+    A candidate is camera shake when, after undoing the measured camera motion (shift,
+    rotation, zoom) and evening out motion blur, the two frames show the same picture and the
+    movement looks physical: the frame is blurred compared with the frames before and after
+    it, the movement is spread over neighbouring frames, or the camera swings back within
+    0.6 s.  A sharp movement that happens entirely between two frames, stays, and is far
+    larger than the camera's movement around it is how an editor's reframe or zoom punch-in
+    looks, so it remains a cut.
+
+    Returns (shake, zoom_jump, reframe) boolean arrays.
+    """
+    r = res.raw
+    n = len(r["t"])
+    shake = np.zeros(n, bool)
+    zoom_jump = np.zeros(n, bool)
+    reframe = np.zeros(n, bool)
+    if "cam_dx" not in r or n < 3:
+        return shake, zoom_jump, reframe
+    dx, dy, rot, lsc = r["cam_dx"], r["cam_dy"], r["cam_rot"], r["cam_scale"]
+    inl, chg, chg0, sharp = r["cam_inl"], r["cam_chg"], r["cam_chg0"], r["sharp"]
+    # overall camera movement per frame; 1 degree of roll moves the frame edges ~0.9% of the width
+    move = np.hypot(dx, dy) + 0.0087 * np.abs(rot) + 0.5 * np.abs(lsc)
+    valid = np.ones(n, bool)
+    valid[0] = False
+    w = max(4, int(round(0.25 * fps)))
+    base_chg = np.nan_to_num(_neighbor_median(chg, w, valid), nan=0.0)
+    horizon = max(3, int(round(0.6 * fps)))
+    min_reframe = _MIN_REFRAME.get(sensitivity, _MIN_REFRAME["high"])
+    for i in np.nonzero(candidate)[0]:
+        if move[i] < _SHAKE_MIN_MOTION:
+            continue  # the camera is (nearly) still: the change is in the picture itself
+        # Motion blur: the frame is softer than both the frames before it and the frames after
+        # it (comparing with the frames after avoids mistaking new, smoother content for blur).
+        before = float(np.median(sharp[max(1, i - 3):i])) if i > 1 else float(sharp[i])
+        after = float(np.median(sharp[i + 1:i + 4])) if i + 1 < n else float(sharp[i])
+        soft_b = sharp[i] / before if before > 0 else 1.0
+        soft_a = sharp[i] / after if after > 0 else 1.0
+        blurred = soft_b < 0.8 and soft_a < 0.8
+        nb = max(move[i - 1] if i >= 2 else 0.0, move[i + 1] if i + 1 < n else 0.0)
+        spread = nb >= 0.3 * move[i]
+        isolated = nb < 0.15 * move[i]
+        # Heavy blur or a movement carried on by the neighbouring frames leave more leftover
+        # difference after compensation; a real cut changes far more than this.
+        violent = (soft_b < 0.6 and soft_a < 0.6) or nb >= 0.6 * move[i]
+        explained = (inl[i] >= 0.5 and chg[i] <= max(0.10 if violent else 0.05, 2.5 * base_chg[i])
+                     # undoing the camera motion must actually remove the change
+                     and (chg[i] <= 0.5 * chg0[i] or chg[i] <= 0.012))
+        if not explained:
+            continue  # a different picture (or subjects that jumped), not the same one moved
+        # does the camera swing back (most bumps and footsteps do)?
+        cx = np.cumsum(dx[i:i + horizon])
+        cy = np.cumsum(dy[i:i + horizon])
+        disp = np.hypot(cx, cy)
+        k_peak = int(np.argmax(disp)) if len(disp) else 0
+        peak = float(disp[k_peak]) if len(disp) else 0.0
+        returns = peak >= _SHAKE_MIN_MOTION and bool((disp[k_peak:] <= 0.4 * peak).any())
+        physical = blurred or spread or returns
+        # the camera's usual movement per frame around the candidate
+        around = np.concatenate([move[max(1, i - horizon):max(1, i - 1)], move[i + 2:i + horizon + 1]])
+        usual = float(np.median(around)) if len(around) else 0.0
+        if abs(lsc[i]) >= np.log(1.04) and not blurred and not spread:
+            zoom_jump[i] = True  # an instant, sharp zoom: a punch-in jump cut
+        elif (not physical and isolated and move[i] >= min_reframe
+              and move[i] >= _REFRAME_VS_CAMERA * max(usual, 5e-4)):
+            reframe[i] = True    # the picture jumped between two frames and stayed: an edit
+        elif not physical and sensitivity == "maximum":
+            reframe[i] = True
+        else:
+            shake[i] = True
+    return shake, zoom_jump, reframe
+
 
 def finalize(res: AnalysisResult, sensitivity: str = "high") -> AnalysisResult:
     """Turn raw per-frame measurements into cuts, eligibility and quality scores."""
@@ -423,14 +623,21 @@ def finalize(res: AnalysisResult, sensitivity: str = "high") -> AnalysisResult:
             & (mag >= 2.0 * mag_pm2) & (resid >= 1.5 * base_r + 0.2))
     gap = np.zeros(n, bool)
     gap[1:] = (dt > 3.0 * med_dt) & (dt > 0.1)
-    cut = (hard | colour | residual | local | jump | gap) & ~dup
+    candidate = (hard | colour | residual | local | jump) & ~dup
+    candidate[0] = False
+    # Camera shake (jolts, bumps, footsteps) also produces sudden changes; keep only the
+    # candidates that camera motion cannot explain.
+    shake, zoom_jump, reframe = _shake_filter(res, candidate, fps_eff, sensitivity)
+    cut = ((candidate & ~shake) | gap) & ~dup
     cut[0] = False
     res.cut_before = cut
+    res.shake_suppressed = [round(float(t[i]), 4) for i in np.nonzero(candidate & shake)[0]]
     reasons = []
     for i in np.nonzero(cut)[0]:
         kinds = [name for name, m in (("scene change", hard), ("colour cut", colour),
                                       ("cut", residual), ("local jump", local),
-                                      ("jump cut", jump), ("timestamp gap", gap)) if m[i]]
+                                      ("jump cut", jump), ("zoom jump cut", zoom_jump),
+                                      ("reframing jump cut", reframe), ("timestamp gap", gap)) if m[i]]
         reasons.append({"source_time_s": round(float(t[i]), 4), "frame": int(i), "type": ", ".join(kinds)})
     res.cut_reason = reasons
 

@@ -34,6 +34,8 @@ class Shot:
     jump_offset: float = 0.10      # for jump cuts: camera offset as fraction of width
     jump_zoom: float = 1.0         # for jump cuts: punch-in zoom factor
     time_skip: float = 0.0         # for jump cuts: time skipped (subjects jump position)
+    shake: str = ""                # realistic camera shake: "" | handheld | walking | running
+    motion_blur: bool = False      # simulate a 180-degree shutter (blur of moving camera/subjects)
 
 
 @dataclass
@@ -118,6 +120,7 @@ class SyntheticVideo:
         noise_rng = np.random.default_rng(seed + 99)
         self._noise = [noise_rng.normal(0, 1.6, (height, width, 3)).astype(np.float32) for _ in range(7)]
         self._frozen_cache: dict[int, np.ndarray] = {}
+        self._shake_cache: dict[int, dict] = {}
 
     def scene(self, sid: int) -> _Scene:
         if sid not in self._scenes:
@@ -155,6 +158,66 @@ class SyntheticVideo:
             dy = 0.015 * math.sin(abs_t * 2.1 + 1)
         return _bounce(x + dx), _bounce(y + dy), zoom
 
+    def _shake_params(self, idx: int) -> dict:
+        """Per-shot random parameters of a realistic shake: wander, jitter and sudden jolts."""
+        if idx in self._shake_cache:
+            return self._shake_cache[idx]
+        shot = self.shots[idx]
+        rng = np.random.default_rng(self.seed * 7919 + idx * 31 + 5)
+        kind = shot.shake
+        if kind == "walking":
+            p = {"bob": (0.004, 0.018), "bob_hz": rng.uniform(1.6, 2.0), "sway": 0.010, "sway_hz": rng.uniform(0.7, 1.0),
+                 "jit": 0.0015, "rot": 0.8, "step_amp": (0.008, 0.022), "jolt_rate": 0.0, "perm": 0.0}
+        elif kind == "running":
+            p = {"bob": (0.008, 0.035), "bob_hz": rng.uniform(2.5, 3.0), "sway": 0.02, "sway_hz": rng.uniform(1.2, 1.5),
+                 "jit": 0.004, "rot": 2.5, "step_amp": (0.02, 0.05), "jolt_rate": 1.0, "perm": 0.25}
+        else:  # handheld
+            p = {"bob": (0.008, 0.008), "bob_hz": rng.uniform(0.6, 0.9), "sway": 0.012, "sway_hz": rng.uniform(1.6, 2.2),
+                 "jit": 0.0025, "rot": 0.6, "step_amp": (0.0, 0.0), "jolt_rate": 0.8, "perm": 0.3}
+        p["phases"] = rng.uniform(0, 2 * math.pi, 8)
+        jolts = []
+        t = float(rng.uniform(0.2, 1.0))
+        while p["jolt_rate"] > 0 and t < shot.duration:
+            amp = rng.uniform(0.015, 0.06) * (1.6 if kind == "running" else 1.0)
+            ang = rng.uniform(0, 2 * math.pi)
+            jolts.append({"t0": self.starts[idx] + t, "ax": amp * math.cos(ang), "ay": amp * math.sin(ang),
+                          "ar": rng.uniform(-2.5, 2.5), "rise": rng.uniform(0.012, 0.05),
+                          "decay": rng.uniform(0.12, 0.6), "perm": rng.random() < p["perm"]})
+            t += rng.exponential(1.0 / p["jolt_rate"]) + 0.25
+        if p["step_amp"][1] > 0:  # footsteps: a jolt at every step
+            period = 1.0 / p["bob_hz"]
+            t = float(rng.uniform(0, period))
+            while t < shot.duration:
+                amp = rng.uniform(*p["step_amp"])
+                jolts.append({"t0": self.starts[idx] + t, "ax": rng.normal(0, 0.2) * amp, "ay": amp,
+                              "ar": rng.normal(0, p["rot"] / 2), "rise": rng.uniform(0.015, 0.04),
+                              "decay": rng.uniform(0.08, 0.2), "perm": False})
+                t += period * rng.uniform(0.9, 1.1)
+        p["jolts"] = jolts
+        self._shake_cache[idx] = p
+        return p
+
+    def _shake(self, idx: int, abs_t: float) -> tuple[float, float, float]:
+        """(dx, dy) as fractions of the frame width and rotation in degrees."""
+        p = self._shake_params(idx)
+        ph = p["phases"]
+        tau = 2 * math.pi
+        dx = p["sway"] * math.sin(tau * p["sway_hz"] * abs_t + ph[0])
+        dy = p["bob"][1] * math.sin(tau * p["bob_hz"] * abs_t + ph[1]) + p["bob"][0] * math.sin(tau * 0.37 * abs_t + ph[2])
+        dx += p["jit"] * (math.sin(tau * 9.3 * abs_t + ph[3]) + 0.7 * math.sin(tau * 12.9 * abs_t + ph[4]))
+        dy += p["jit"] * (math.sin(tau * 10.7 * abs_t + ph[5]) + 0.6 * math.sin(tau * 14.1 * abs_t + ph[6]))
+        rot = p["rot"] * math.sin(tau * 0.8 * abs_t + ph[7])
+        for j in p["jolts"]:
+            u = abs_t - j["t0"]
+            if u <= 0:
+                continue
+            rise = 1.0 - math.exp(-u / j["rise"])
+            f = rise if j["perm"] else rise * math.exp(-u / j["decay"])
+            dx += j["ax"] * f
+            dy += j["ay"] * f
+            rot += j["ar"] * f
+        return dx, dy, rot
+
     def _render_shot(self, idx: int, local_t: float, frame_no: int) -> np.ndarray:
         shot = self.shots[idx]
         W, H = self.width, self.height
@@ -164,7 +227,13 @@ class SyntheticVideo:
             if idx not in self._frozen_cache:
                 self._frozen_cache[idx] = self._render_live(idx, 0.0)
             return self._frozen_cache[idx]
-        img = self._render_live(idx, local_t).astype(np.float32)
+        if shot.motion_blur:
+            # 180-degree shutter: average sub-frames over half a frame interval
+            span = 0.5 / float(self.fps)
+            subs = [self._render_live(idx, local_t + span * (k / 5.0 - 0.5)).astype(np.float32) for k in range(6)]
+            img = np.mean(subs, axis=0)
+        else:
+            img = self._render_live(idx, local_t).astype(np.float32)
         img += self._noise[frame_no % len(self._noise)]
         return np.clip(img, 0, 255).astype(np.uint8)
 
@@ -177,8 +246,8 @@ class SyntheticVideo:
         cw, ch = sc.W / 2.2 / zoom, sc.H / 2.2 / zoom
         ox, oy = x * (sc.W - cw), y * (sc.H - ch)
         M = np.array([[W / cw, 0, -ox * W / cw], [0, H / ch, -oy * H / ch]], np.float32)
-        frame = cv2.warpAffine(sc.img, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         abs_t = self.starts[idx] + local_t
+        frame = cv2.warpAffine(sc.img, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         abs_t += sum(s.time_skip for s in self.shots[:idx + 1] if s.scene == shot.scene and s.transition == "jump")
         for k, sp in enumerate(sc.sprites[:shot.sprites]):
             p = sp["p"] + sp["v"] * abs_t
@@ -188,6 +257,13 @@ class SyntheticVideo:
             cv2.circle(frame, (cx, cy), rad, sp["c"], -1, cv2.LINE_AA)
             cv2.circle(frame, (cx, cy), max(2, rad // 2), (255 - sp["c"][0], 255 - sp["c"][1], 255 - sp["c"][2]), -1, cv2.LINE_AA)
             cv2.line(frame, (cx - rad, cy), (cx + rad, cy), (20, 20, 20), max(1, rad // 6), cv2.LINE_AA)
+        if shot.shake:
+            # the shaking camera moves everything it films, background and subjects alike
+            dx, dy, rot = self._shake(idx, self.starts[idx] + local_t)
+            R = cv2.getRotationMatrix2D((W / 2, H / 2), rot, 1.0)
+            R[0, 2] += dx * W
+            R[1, 2] += dy * W
+            frame = cv2.warpAffine(frame, R, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
         return frame
 
     def shot_at(self, t: float) -> int:

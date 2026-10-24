@@ -175,7 +175,11 @@ def test_truncated_stream_is_handled(multi_comp_video, tmp_path):
     s = Pipeline(Settings(), str(tmp_path / "out")).run([str(ts)])
     assert not s.cancelled
     rep = load_report(tmp_path / "out" / "broken")
-    assert rep["status"] in ("complete", "no_compilations")
+    assert rep["status"] == "complete"
+    # a transport stream has no seek index: it is read through a seekable copy, so the
+    # footage verifies and none of it is thrown away
+    assert rep["seekable_copy"] and rep["compilations_completed"] >= 1
+    assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"]
     for c in rep["compilations"]:
         if c["status"] == "completed":
             assert c["verification"]["passed"]
@@ -239,6 +243,53 @@ def test_failed_verification_replaces_footage(one_comp_video, tmp_path, monkeypa
     comp = rep["compilations"][0]
     assert comp["attempts"] and comp["verification"]["passed"]
     assert sorted(p.name for p in folder.glob("*.mp4")) == ["Compilation 1.mp4"]
+
+
+def test_many_verification_rejections_do_not_stop_the_video(multi_comp_video, tmp_path, monkeypatch):
+    """Each rejected clip is replaced; a run of rejections must not end processing early."""
+    import vcm.pipeline as pl
+    from vcm.verify import VerificationResult
+    real = pl.verify_compilation
+    calls = {"n": 0}
+
+    def picky(job, out_path, style, *a, **kw):
+        calls["n"] += 1
+        if calls["n"] <= 8:
+            return VerificationResult(passed=False, bad_clips=[0], problems=["simulated cut inside clip 1"])
+        return real(job, out_path, style, *a, **kw)
+
+    monkeypatch.setattr(pl, "verify_compilation", picky)
+    path, _ = multi_comp_video
+    s = Pipeline(Settings(), str(tmp_path)).run([path])
+    rep = load_report(tmp_path / Path(path).stem)
+    assert not s.errors, s.errors
+    assert sum(e["status"] == "rejected" for e in rep["allocation_ledger"]) == 8
+    assert rep["compilations_completed"] >= 1
+    assert rep["remaining"]["additional_clips_possible"] < 10, "stopped before the footage was used up"
+    assert rep["capacity"]["footage_rejected_by_verification_source_s"] == pytest.approx(8 * 3.9, abs=0.01)
+
+
+def test_whole_compilation_failing_verification_keeps_footage(one_comp_video, tmp_path, monkeypatch):
+    """When most clips fail at once the fault is not in the footage, so none of it is thrown away."""
+    import vcm.pipeline as pl
+    from vcm.verify import VerificationResult
+    real = pl.verify_compilation
+    calls = {"n": 0}
+
+    def broken_once(job, out_path, style, *a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return VerificationResult(passed=False, bad_clips=list(range(len(job.clips))),
+                                      problems=["simulated decoder trouble"])
+        return real(job, out_path, style, *a, **kw)
+
+    monkeypatch.setattr(pl, "verify_compilation", broken_once)
+    path, _ = one_comp_video
+    s = Pipeline(Settings(), str(tmp_path)).run([path])
+    rep = load_report(tmp_path / Path(path).stem)
+    assert not s.errors, s.errors
+    assert rep["compilations_completed"] == 1
+    assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"]
 
 
 def test_unreadable_watermark_is_restyled_and_rerendered(one_comp_video, tmp_path, monkeypatch):

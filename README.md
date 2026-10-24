@@ -23,8 +23,8 @@ download one of:
 
 | File | What it is |
 |---|---|
-| `VideoCompilationMaker-Setup-1.0.1.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
-| `VideoCompilationMaker-1.0.1-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
+| `VideoCompilationMaker-Setup-1.0.2.exe` | **Installer (recommended).** Installs for your Windows user only (no administrator rights needed), adds a Start-menu entry and optionally a desktop icon, and can be removed from *Settings → Apps*. |
+| `VideoCompilationMaker-1.0.2-portable-win64.zip` | Portable version. Unzip anywhere and double-click `VideoCompilationMaker.exe`. |
 
 Everything is bundled (Python runtime, Qt, OpenCV, FFmpeg 9.0) — you do **not** need to
 install Python, FFmpeg or anything else. Windows 10 or 11, 64-bit. The installer is about
@@ -43,7 +43,10 @@ The same files are also attached to every successful run of the
 1. **Select videos** – *Add videos…*, *Add folder…* (all videos directly inside that folder)
    or drag and drop files/folders onto the list. Common formats work: MP4, MOV, MKV, AVI,
    WMV, WEBM, MTS/M2TS, TS, 3GP, FLV, MPG, … File names with spaces and non-English
-   characters are fine.
+   characters are fine. Files without a seek index (camcorder MTS/M2TS, TS, MPG/VOB) — or
+   any file in which seeking turns out not to land on the right frame — are read through a
+   temporary copy with a seek index (the streams are copied, nothing is re-encoded), so
+   every clip is cut from exactly the right place.
 2. **Output folder** – choose where the compilations are saved.
 3. **Settings** – the defaults already follow the rules below. You can change speed, clip
    length, number of clips, quality, and the watermark (text, size, position, colour).
@@ -74,7 +77,15 @@ The verification step measures the speed in the finished file to prove it was ap
 * **Cuts and jump cuts** are detected frame by frame (colour change, pixel change, dense
   optical flow and the motion-compensated residual, with adaptive thresholds so subtle jump
   cuts in static footage are found while camera moves are not mistaken for cuts).
-  **Dissolves and fades** are found with a blend test, and **black/blank** and **frozen**
+* **Camera shake is not a cut.** For every possible cut the program measures how the whole
+  picture moved (shift, rotation, zoom) and undoes that movement. If the two frames then show
+  the same picture and the movement looks physical — motion blur, movement spread over
+  neighbouring frames, or the camera swinging back — it is handheld, walking or running
+  shake and the footage stays usable. A sharp jump that happens between two frames, stays,
+  and is far larger than the camera's normal movement (an editor's reframe or zoom
+  punch-in) is still treated as a jump cut, as is any change that undoing the camera
+  movement does not explain (for example people jumping position after a time skip).
+* **Dissolves and fades** are found with a blend test, and **black/blank** and **frozen**
   frames are excluded. A small safety margin is kept around every cut.
 * Every clip is one continuous, uninterrupted piece of footage.
 * Clips are ranked by **visible movement** (optical-flow subject + camera motion),
@@ -94,6 +105,15 @@ The verification step measures the speed in the finished file to prove it was ap
 * If the remaining footage is not enough for another complete compilation, no incomplete
   compilation is made; the report says how much usable footage is left and how many more
   clips would be needed.
+* When verification finds a problem in a clip, only that clip's footage is set aside and the
+  compilation is planned again with other footage; processing carries on until the footage
+  is used up. If most clips of a compilation fail at once, the problem is not the footage, so
+  none of it is set aside.
+* The results screen shows, for every video, how many compilations were made and **the most
+  the whole video can give** ("3 compilation(s) in total (at most 3 possible)"), with the
+  reason: how much of the video is usable after leaving out cuts and transitions, how many
+  3.9 s clips that holds, and any footage set aside by verification. The same numbers are in
+  the report under `capacity`.
 
 ### Watermark
 * Exactly the configured text (default `onlyfans.com/nyraishtara`), in a bold clean font
@@ -176,7 +196,7 @@ Your original files are only read, never modified, moved or deleted.
 |---|---|
 | "Windows protected your PC" | *More info → Run anyway* (the app is not code-signed). |
 | A video is reported as unreadable | The file is damaged or not a video. The other videos are still processed. Try re-saving it with another program. |
-| "0 compilations" for a video | It does not contain enough continuous footage (each compilation needs ten uncut 3.9 s sections). The report lists the cuts and skipped sections and how much footage is left. Lower *Cut detection* to *Normal* if a video with many camera shakes is split too often. |
+| "0 compilations" or fewer than expected | Each compilation needs ten uncut 3.9 s sections. The results screen says how many compilations the whole video can give and why ("at most N possible"); the report lists every detected cut (`analysis.cuts`) and the camera shakes that were *not* counted as cuts (`analysis.camera_shake_not_counted_as_cut_s`). *Maximum* cut detection also treats small sharp camera jolts as possible jump cuts — use *High* (default) or *Normal* for shaky handheld footage. |
 | "already contains compilation files but no report" | The output folder has `Compilation N.mp4` files without their `Compilation report.json`. Move those files away (or restore the report) so footage cannot be reused by mistake. |
 | I want to redo a video from scratch | Delete or rename that video's output folder, then start again. |
 | Not enough disk space | Free some space; a 30-second 1080p compilation is typically 20–60 MB. |
@@ -218,7 +238,7 @@ python packaging\fetch_ffmpeg.py              # downloads the FFmpeg build into 
 python packaging\collect_licenses.py
 python -m PyInstaller packaging\vcm.spec --noconfirm --distpath dist --workpath build\pyinstaller
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\installer.iss
-# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.1.exe
+# -> dist\VideoCompilationMaker\VideoCompilationMaker.exe and dist\VideoCompilationMaker-Setup-1.0.2.exe
 ```
 
 Run from source without packaging: `pip install -e .` then `python -m vcm`
@@ -232,7 +252,8 @@ python -m pytest -v
 ```
 
 The suite generates synthetic videos with known ground truth (hard cuts, subtle jump cuts,
-dissolves, fades, black and frozen sections, camera pans/shake/zoom, 24/25/29.97/30/50/60 fps
+dissolves, fades, black and frozen sections, camera pans/zoom, realistic handheld/walking/running
+camera shake with motion blur, 24/25/29.97/30/50/60 fps
 and variable frame rate, landscape/portrait/anamorphic/rotated, with and without audio, audio
 beeps for sync checks) and covers: short sources (no compilation), exactly one and multiple
 compilations, frame rates and resolutions, audio/no audio and A/V sync against the known beep
@@ -240,7 +261,9 @@ times, cut detection and exclusion of unsuitable footage, footage reuse preventi
 compilations and runs, watermark rendering/visibility/verification (including rejecting a wrong
 or missing watermark), cancellation and resuming, corrupt/empty/audio-only/truncated inputs,
 HDR (PQ and HLG) and other codecs/containers (HEVC/MOV, VP9+Opus/WebM, MJPEG+PCM/AVI,
-interlaced H.264, files with cover art), the GUI (offscreen) and the command line.
+H.264+AC-3/M2TS, MPEG-2/MPG, interlaced H.264, files with cover art), shaky handheld footage
+yielding every possible compilation, verification failures being replaced without stopping
+early, the GUI (offscreen) and the command line.
 
 Results are in [`docs/test-results`](docs/test-results): the full suite passes on Linux and
 on the Windows build machine (`pytest-linux.txt`, `pytest-windows.txt`, JUnit XML), and
@@ -260,7 +283,9 @@ its report and a contact sheet are in [`docs/sample-output`](docs/sample-output)
   motion, audio and timing, because no real footage was available to me.
 * **Cut detection** is automatic image analysis, not human judgement. On the test material it
   found every hard cut, jump cut, dissolve and fade, with no false cuts in continuous camera
-  motion. A very subtle reframe of a nearly featureless background (≈3 % shift) can still be
+  motion or in shaky handheld, walking and running footage with motion blur (tested at
+  24–60 fps). In shaky footage a small reframe (under about 10 times the camera's normal
+  movement per frame) cannot be told apart from shake and is treated as shake. A very subtle reframe of a nearly featureless background (≈3 % shift) can still be
   missed at the default *High* setting — use *Maximum* for heavily edited videos.
 * **"Interesting action / clear subject"** is approximated by motion (optical flow),
   sharpness, exposure and contrast. The program does not understand what is in the picture.

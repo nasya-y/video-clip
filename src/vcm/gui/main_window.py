@@ -725,9 +725,12 @@ class MainWindow(QMainWindow):
         lines = []
         for vs in summary.video_summaries:
             rem = vs.get("remaining") or {}
+            cap = vs.get("capacity") or {}
             if rem.get("message"):
+                most = cap.get("max_compilations_from_whole_video")
                 lines.append(f"• {Path(vs['video']).name}: {vs.get('compilations_total', 0)} compilation(s) in "
-                             f"total. {rem['message']}")
+                             f"total" + (f" (at most {most} possible)" if most is not None else "") + ". "
+                             + (cap.get("message", "") + " " if cap.get("message") else "") + rem["message"])
             elif vs.get("errors"):
                 lines.append(f"• {Path(vs['video']).name}: {vs['errors'][0]}")
         self.lbl_summary.setText("\n".join(lines))

@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 180
     env:
       PYTHONUTF8: "1"
-      VCM_VERSION: "1.0.1"
+      VCM_VERSION: "1.0.2"
     steps:
       - uses: actions/checkout@v4
 

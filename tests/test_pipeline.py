@@ -12,6 +12,7 @@ from conftest import clip_intervals, load_report, two_shot
 from vcm.ffmpeg_tools import FrameReader, probe, read_audio
 from vcm.pipeline import Pipeline, collect_videos
 from vcm.settings import Settings
+from vcm.synth import Shot
 
 TOL_FRAME = 1 / 24 + 0.03
 
@@ -76,6 +77,8 @@ def test_exactly_one_compilation_with_full_report(one_comp_video, tmp_path):
     assert files == ["Compilation 1.mp4"]
     assert_valid_compilation(folder / "Compilation 1.mp4", True, (480, 270))
     rep = load_report(folder)
+    assert "seekable_copy" not in rep, "seeking in an MP4 file is exact; no copy is needed"
+    assert rep["capacity"]["max_compilations_from_whole_video"] == 1
     # report contents required by the specification
     assert rep["source"]["filename"] == Path(path).name
     assert rep["source"]["duration_s"] == pytest.approx(gt.duration, abs=0.1)
@@ -107,6 +110,24 @@ def test_exactly_one_compilation_with_full_report(one_comp_video, tmp_path):
     assert rep["allocation_ledger"] and all(e["status"] == "used" for e in rep["allocation_ledger"])
     assert "cuts" in rep["analysis"] and rep["skipped_sections"]
     assert_no_forbidden_footage(rep, gt)
+
+
+def test_shaky_video_gives_every_possible_compilation(videos, tmp_path):
+    """Camera shake must not cost footage: three shaky 40.5 s shots hold exactly 30 clips."""
+    shots = [Shot(40.5, scene=1, camera="static", shake="handheld", motion_blur=True, sprites=3),
+             Shot(40.5, scene=2, camera="static", shake="walking", motion_blur=True, sprites=4),
+             Shot(40.5, scene=3, camera="pan", shake="running", motion_blur=True, sprites=3)]
+    path, gt = videos.get("shaky_long.mp4", shots, width=320, height=180, fps=30, seed=51)
+    s = run([path], tmp_path)
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / "shaky_long")
+    assert [c["source_time_s"] for c in rep["analysis"]["cuts"]] == pytest.approx(gt.cuts, abs=0.05)
+    # a single false cut or a wrongly rejected clip would leave only 29 clips = 2 compilations
+    assert rep["capacity"]["max_compilations_from_whole_video"] == 3
+    assert rep["compilations_completed"] == 3
+    assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"]
+    assert_no_forbidden_footage(rep, gt)
+    assert "3 compilation(s) of 10 clips" in rep["capacity"]["message"]
 
 
 @pytest.fixture(scope="module")
@@ -303,6 +324,9 @@ def test_hdr_source_is_tone_mapped(videos, tmp_path, trc):
     (".avi", ["-c:v", "mjpeg", "-q:v", "3"], ["-c:a", "pcm_s16le"]),
     (".mov", ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-tag:v", "hvc1"],
      ["-c:a", "aac"]),
+    # camcorder (AVCHD) style MPEG transport stream and DVD style MPEG program stream: no seek index
+    (".m2ts", ["-c:v", "libx264", "-preset", "veryfast", "-g", "50"], ["-c:a", "ac3"]),
+    (".mpg", ["-c:v", "mpeg2video", "-q:v", "3", "-g", "15"], ["-c:a", "mp2"]),
 ])
 def test_other_codecs_and_containers(videos, tmp_path, ext, vargs, aargs):
     import subprocess
@@ -319,4 +343,6 @@ def test_other_codecs_and_containers(videos, tmp_path, ext, vargs, aargs):
     rep = load_report(tmp_path / "o" / out.stem)
     assert rep["compilations_completed"] == 1
     assert rep["compilations"][0]["verification"]["passed"]
+    assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"], "footage was thrown away"
+    assert ("seekable_copy" in rep) == (ext in (".m2ts", ".mpg"))
     assert_valid_compilation(tmp_path / "o" / out.stem / "Compilation 1.mp4", True, (480, 270))

@@ -414,6 +414,34 @@ def analysis_size(display_w: int, display_h: int, max_side: int = 192) -> tuple[
     return even(max_side * display_w / display_h), even(max_side)
 
 
+# Containers without a seek index: FFmpeg estimates seek positions from the bit rate, which
+# can land a second or more away from the requested frame (MPEG transport/program streams
+# such as camcorder .MTS/.M2TS and .VOB files, and raw elementary streams).
+UNINDEXED_FORMATS = {"mpegts", "mpeg", "mpegvideo", "h264", "hevc"}
+
+
+def has_seek_index(info: MediaInfo) -> bool:
+    return not (set(info.format_name.split(",")) & UNINDEXED_FORMATS)
+
+
+def remux_to_matroska(info: MediaInfo, dest: str, cancel: Optional[CancelToken] = None) -> MediaInfo:
+    """Copy the video and the first audio stream into Matroska, without re-encoding.
+
+    Matroska has a seek index, so every later seek lands exactly on the requested frame.
+    Audio that Matroska cannot hold as it is gets converted losslessly to FLAC."""
+    cmd = [ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-fflags", "+genpts",
+           "-i", info.path, "-map", f"0:{info.video_stream_index}"]
+    if info.has_audio:
+        cmd += ["-map", "0:a:0"]
+    details = ""
+    for codecs in (["-c", "copy"], ["-c:v", "copy", "-c:a", "flac"]):
+        r = run(cmd + codecs + ["-f", "matroska", dest], cancel)
+        if r.returncode == 0 and os.path.isfile(dest) and os.path.getsize(dest) > 0:
+            return probe(dest, cancel)
+        details = tail(r.stderr)
+    raise FFmpegError("The video could not be copied into a seekable container.", details)
+
+
 class FrameReader:
     """Stream decoded frames (optionally scaled/cropped) together with exact timestamps.
 

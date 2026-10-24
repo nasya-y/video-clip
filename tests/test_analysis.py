@@ -51,6 +51,34 @@ def test_subtle_jump_cuts(videos):
     assert not false
 
 
+def shaky_shots():
+    """Handheld, walking and running footage (with motion blur) plus real jump cuts in it."""
+    return [
+        Shot(8, scene=1, camera="static", shake="handheld", motion_blur=True, sprites=3),
+        Shot(8, scene=2, camera="static", shake="walking", motion_blur=True, sprites=4),
+        Shot(8, scene=3, camera="pan", shake="running", motion_blur=True, sprites=3),
+        Shot(7, scene=4, camera="static", shake="handheld", motion_blur=True, sprites=2,
+             transition="jump", jump_offset=0.0, time_skip=1.5),       # jump cut while shaking
+        Shot(7, scene=4, camera="static", shake="handheld", motion_blur=True, sprites=2,
+             transition="jump", jump_offset=0.0, jump_zoom=1.12),      # punch-in while shaking
+        Shot(6, scene=5, camera="static", sprites=2),
+        Shot(5, scene=5, camera="static", sprites=2, transition="jump", jump_offset=0.0, jump_zoom=1.08),
+        Shot(5, scene=5, camera="static", sprites=2, transition="jump", jump_offset=0.0, time_skip=1.0),
+    ]
+
+
+@pytest.mark.parametrize("fps,seed", [(30, 21), (25, 22)])
+def test_camera_shake_is_not_a_cut(videos, fps, seed):
+    """Shaky handheld/walking/running footage: no false cuts, real jump cuts still found."""
+    path, gt = videos.get(f"shaky_{fps}.mp4", shaky_shots(), width=480, height=270, fps=fps, seed=seed)
+    an = analyze_video(probe(path), use_cache=False)
+    hits, false = _match(an.cut_times(), gt.cuts, 1.5 / fps)
+    assert len(hits) == len(gt.cuts), f"missed cuts: {sorted(set(gt.cuts) - set(hits))}"
+    assert not false, f"camera shake detected as cuts at {false}"
+    # the shaky shots stay usable apart from the frames right at the real cuts
+    assert an.eligible_seconds() > gt.duration - 0.5 * len(gt.cuts) - 0.5
+
+
 def test_no_false_cuts_in_continuous_motion(videos):
     shots = [Shot(15, scene=3, camera="fast_pan", sprites=8),
              Shot(15, scene=3, camera="shake", sprites=8, transition="jump", jump_offset=0.0),

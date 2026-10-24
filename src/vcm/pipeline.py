@@ -22,8 +22,10 @@ import numpy as np
 from PIL import Image
 
 from . import APP_NAME, __version__
-from .analysis import ANALYSIS_MAX_SIDE, AnalysisResult, analyze_video, file_fingerprint
-from .ffmpeg_tools import CancelToken, Cancelled, FFmpegError, ffmpeg, ffmpeg_version, probe, run
+from .analysis import (ANALYSIS_MAX_SIDE, AnalysisResult, analyze_video, file_fingerprint,
+                       seeking_matches_analysis)
+from .ffmpeg_tools import (CancelToken, Cancelled, FFmpegError, MediaInfo, ffmpeg, ffmpeg_version, has_seek_index,
+                           probe, remux_to_matroska, run)
 from .paths import cache_dir, temp_root
 from .render import RenderJob, output_format, preview_frames, render
 from .report import (REPORT_NAME, Report, compilation_name, existing_compilation_files, now_iso,
@@ -34,6 +36,10 @@ from .verify import verify_compilation
 from .watermark import WatermarkStyle, choose_style, make_style, place, render_overlay
 
 log = logging.getLogger(__name__)
+
+# A compilation whose clips keep failing verification is re-planned with other footage at
+# most this many times.
+MAX_REPLANS_PER_COMPILATION = 10
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".wmv", ".webm", ".mts", ".m2ts", ".ts",
                     ".3gp", ".flv", ".mpg", ".mpeg", ".vob", ".ogv", ".mxf", ".dv"}
@@ -154,6 +160,7 @@ class Pipeline:
         self.output_dir = Path(output_dir)
         self.events = events or Events()
         self.cancel = cancel or CancelToken()
+        self._copies: list[str] = []   # temporary seekable copies of the current source
 
     # ------------------------------------------------------------------ logging helpers
     def _log(self, msg: str, level: int = logging.INFO) -> None:
@@ -191,7 +198,12 @@ class Pipeline:
                 prog.video = vi
                 self.events.video_started(vi, len(videos), path)
                 try:
-                    vs = self.process_video(path, ws, prog)
+                    try:
+                        vs = self.process_video(path, ws, prog)
+                    finally:
+                        for copy in self._copies:
+                            _remove(copy)
+                        self._copies.clear()
                     summary.video_summaries.append(vs)
                     summary.compilations_created.extend(vs.get("new_compilations", []))
                     if vs.get("report"):
@@ -282,12 +294,32 @@ class Pipeline:
         report.data["status"] = "in_progress"
 
         # ---- analysis (35% of the per-video progress)
-        self._log(f"{name}: analysing the whole video ({info.duration:.1f} s)")
-        t0 = time.monotonic()
-        an = analyze_video(info, cancel, progress=lambda f: prog.set(0.35 * f, f"{name}: analysing footage {int(f * 100)}%"),
-                           sensitivity=st.cut_sensitivity)
-        self._log(f"{name}: analysis done in {time.monotonic() - t0:.1f} s - {an.n} frames, "
-                  f"{len(an.cut_times())} cuts, {an.eligible_seconds():.1f} s eligible")
+        # Rendering and verification seek to every clip, so seeking must land exactly on the
+        # analysed frames. Files without a seek index are read through a seekable copy.
+        work = info
+        if not has_seek_index(info):
+            work = self._seekable_copy(info, ws, report, name, "the file has no seek index")
+
+        def analyse(src: MediaInfo) -> AnalysisResult:
+            self._log(f"{name}: analysing the whole video ({info.duration:.1f} s)")
+            t0 = time.monotonic()
+            res = analyze_video(src, cancel, sensitivity=st.cut_sensitivity,
+                                cache_id=fingerprint + ("|seekable copy" if src is not info else ""),
+                                progress=lambda f: prog.set(0.35 * f, f"{name}: analysing footage {int(f * 100)}%"))
+            self._log(f"{name}: analysis done in {time.monotonic() - t0:.1f} s - {res.n} frames, "
+                      f"{len(res.cut_times())} cuts, {res.eligible_seconds():.1f} s eligible")
+            return res
+
+        an = analyse(work)
+        if not seeking_matches_analysis(work, an, cancel):
+            if work is info:
+                work = self._seekable_copy(info, ws, report, name,
+                                           "seeking in the file does not land on the analysed frames")
+                if work is not info:
+                    an = analyse(work)
+            if work is info or not seeking_matches_analysis(work, an, cancel):
+                report.add_warning("Seeking in this file is not frame-accurate. Every compilation is still "
+                                   "verified against the source, and clips that do not match are replaced.")
         if getattr(an, "decode_warnings", 0):
             report.add_warning(f"The decoder reported {an.decode_warnings} warnings while reading the source "
                                "(the file may be slightly damaged).")
@@ -307,6 +339,7 @@ class Pipeline:
             "cut_sensitivity": st.cut_sensitivity,
             "cuts_detected": len(an.cut_reason),
             "cuts": an.cut_reason,
+            "camera_shake_not_counted_as_cut_s": an.shake_suppressed,
             "gradual_transitions": [
                 {"source_start_s": round(float(an.t[a]), 4),
                  "source_end_s": round(float(an.t[min(b, an.n - 1)] + an.durations[min(b, an.n - 1)]), 4)}
@@ -314,13 +347,15 @@ class Pipeline:
             "eligible_footage_source_s": round(an.eligible_seconds(), 4),
             "eligible_footage_timeline_s": round(an.eligible_seconds() / S, 4),
             "method": "full decode at reduced resolution; HSV + pixel difference, DIS optical flow and "
-                      "flow-compensated residual with adaptive thresholds; blend test for dissolves/fades",
+                      "flow-compensated residual with adaptive thresholds; blend test for dissolves/fades; "
+                      "camera shake (shift/rotation/zoom fitted to the flow, motion blur, swing-back) is "
+                      "told apart from jump cuts",
         }
         report.data["skipped_sections"] = [s for s in report.data.get("skipped_sections", [])
                                            if "rejected by verification" in s.get("reason", "")]
         report.data["skipped_sections"] += an.ineligible_sections()
 
-        fmt = output_format(info, an, st)
+        fmt = output_format(work, an, st)
         report.data["output_format"] = fmt.to_dict()
         for note in fmt.notes:
             report.add_warning(note)
@@ -331,7 +366,7 @@ class Pipeline:
         if not pending:
             self._log(f"{name}: not enough eligible footage for a complete compilation")
         try:
-            self._render_all(pending, info, an, fmt, report, ws, prog, result, name)
+            self._render_all(pending, work, an, fmt, report, ws, prog, result, name)
         except Cancelled:
             report.drop_planned()
             report.data["status"] = "cancelled"
@@ -354,15 +389,43 @@ class Pipeline:
             "folder": str(folder),
             "compilations_total": n_done,
             "remaining": report.data.get("remaining"),
+            "capacity": report.data.get("capacity"),
         })
         self._log(f"{name}: {len(result['new_compilations'])} new compilation(s), {n_done} in total. "
-                  f"{report.data['remaining']['message']}")
+                  f"{report.data['capacity']['message']} {report.data['remaining']['message']}")
         return result
+
+    def _seekable_copy(self, info: MediaInfo, ws: TempWorkspace, report: Report, name: str, why: str) -> MediaInfo:
+        """Stream-copy the source into Matroska (exact seeking); returns the source on failure."""
+        try:
+            free = shutil.disk_usage(temp_root()).free
+        except OSError:
+            free = None
+        if free is not None and free < info.size_bytes + 200_000_000:
+            report.add_warning(f"Seeking in this file may be inaccurate ({why}) and there is not enough free "
+                               "disk space for a temporary copy; clips are still checked after rendering.")
+            return info
+        self._log(f"{name}: {why} - reading it through a temporary copy with a seek index "
+                  "(streams are copied, nothing is re-encoded)")
+        dest = ws.file(f"seekable-{uuid.uuid4().hex[:8]}.mkv")
+        self._copies.append(dest)
+        try:
+            copy = remux_to_matroska(info, dest, self.cancel)
+        except FFmpegError as exc:
+            report.add_warning(f"Seeking in this file may be inaccurate ({why}) and a seekable copy could not be "
+                               f"made ({exc}); clips are still checked after rendering.")
+            return info
+        report.data["seekable_copy"] = {
+            "reason": why,
+            "method": "video and first audio stream copied into Matroska without re-encoding (audio that "
+                      "Matroska cannot hold is converted losslessly to FLAC); all clip times refer to this copy",
+        }
+        return copy
 
     def _render_all(self, pending, info, an, fmt, report: Report, ws: TempWorkspace, prog: _Progress,
                     result: dict, name: str) -> None:
         cancel = self.cancel
-        replans = 0
+        replans: dict[int, int] = {}
         done = 0
         total = max(1, len(pending))
         consecutive_failures = 0
@@ -382,8 +445,10 @@ class Pipeline:
                 self.events.compilation_done(outcome)
                 report.save()
                 continue
-            if outcome["status"] == "replan" and replans < 6:
-                replans += 1
+            # Every re-plan permanently sets aside the footage that failed, so this always ends;
+            # the cap only guards against a compilation number that never succeeds.
+            if outcome["status"] == "replan" and replans.get(index, 0) < MAX_REPLANS_PER_COMPILATION:
+                replans[index] = replans.get(index, 0) + 1
                 self._log(f"{name}: compilation {index} failed verification ({outcome['reason']}); "
                           "replacing the affected footage and planning again", logging.WARNING)
                 pending = self._plan(an, report)
@@ -488,12 +553,21 @@ class Pipeline:
                 final = self._commit(tmp_out, folder, index)
                 entry = self._compilation_entry(index, final, job, style, ver, render_s, attempts, thumb)
                 report.mark_completed(index, entry)
-                return {"status": "completed", "path": str(final), "index": index, "video": info.path,
+                return {"status": "completed", "path": str(final), "index": index,
+                        "video": report.data.get("source", {}).get("path", info.path),
                         "duration": job.duration, "thumbnail": thumb, "colour": style.fill_name,
                         "position": style.position}
             attempts.append({"attempt": attempt, "result": "verification failed", "problems": ver.problems})
             self._log(f"Compilation {index} attempt {attempt} failed verification: {'; '.join(ver.problems)}",
                       logging.WARNING)
+            if ver.bad_clips and len(ver.bad_clips) > len(clips) // 2:
+                # Most clips failing at once points at a problem with the file or its decoding,
+                # not at the footage itself: keep the footage available instead of rejecting it.
+                report.record_failed_attempt(index, "most clips failed verification", ver.to_dict())
+                _remove(tmp_out)
+                return {"status": "failed",
+                        "reason": f"{len(ver.bad_clips)} of {len(clips)} clips failed verification "
+                                  f"({'; '.join(ver.problems)})"}
             if ver.bad_clips:
                 rejected = [(clips[k].source_start, clips[k].source_end) for k in ver.bad_clips]
                 report.record_failed_attempt(index, "clip failed verification", ver.to_dict(), rejected)
@@ -597,6 +671,37 @@ class Pipeline:
         if free < need or temp_free < need:
             raise RuntimeError(f"Not enough free disk space (need about {need // 1_000_000} MB).")
 
+    def _capacity(self, report: Report, an: AnalysisResult) -> dict:
+        """How many compilations the whole video can give, and what limits the number."""
+        st = self.settings
+        S, D, N = st.speed, st.clip_duration, st.clips_per_compilation
+        whole = plan_compilations(an, S, D, N, st.distribution, ())
+        rejected = [(float(e["source_start_s"]), float(e["source_end_s"]))
+                    for e in report.data.get("allocation_ledger", []) if e.get("status") == "rejected"]
+        rejected_s = sum(b - a for a, b in _merge_intervals(rejected))
+        n_cuts = len(an.cut_reason)
+        n_trans = len(_merge_ranges(an.dissolve_ranges))
+        removed = [f"{n_cuts} cut{'s' if n_cuts != 1 else ''}"]
+        if n_trans:
+            removed.append(f"{n_trans} transition{'s' if n_trans != 1 else ''}")
+        if an.black.any() or an.frozen.any():
+            removed.append("black/frozen frames")
+        msg = (f"The video has {an.end_time:.0f} s of footage; {an.eligible_seconds():.0f} s is usable after "
+               f"leaving out {', '.join(removed)}. That holds at most {whole.max_clips} clips of "
+               f"{D * S:g} s, i.e. {whole.max_clips // N} compilation(s) of {N} clips.")
+        if rejected_s > 0:
+            msg += f" {rejected_s:.0f} s of footage was set aside because it failed verification."
+        return {
+            "source_duration_s": round(an.end_time, 4),
+            "eligible_footage_source_s": round(an.eligible_seconds(), 4),
+            "cuts_detected": n_cuts,
+            "gradual_transitions": n_trans,
+            "clips_that_fit_in_whole_video": whole.max_clips,
+            "max_compilations_from_whole_video": whole.max_clips // N,
+            "footage_rejected_by_verification_source_s": round(rejected_s, 4),
+            "message": msg,
+        }
+
     def _finalize_report(self, report: Report, an: AnalysisResult, run_entry: dict) -> None:
         st = self.settings
         used = report.used_intervals()
@@ -619,6 +724,7 @@ class Pipeline:
             "clips_needed_for_next_compilation": max(0, N - k) if k < N else 0,
             "message": msg,
         }
+        report.data["capacity"] = self._capacity(report, an)
         report.data["compilations_completed"] = len(completed)
         report.data["compilation_files"] = [c.get("filename") for c in completed]
         failed = [c for c in report.compilations() if c.get("status") == "failed"]
@@ -627,6 +733,16 @@ class Pipeline:
             report.data["status"] = "no_compilations" if not failed else "failed"
         run_entry["finished_at"] = now_iso()
         run_entry["compilations_completed_total"] = len(completed)
+
+
+def _merge_intervals(iv: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    out: list[tuple[float, float]] = []
+    for a, b in sorted(iv):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
 
 
 def _merge_ranges(ranges: np.ndarray) -> list[tuple[int, int]]:

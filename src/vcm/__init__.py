@@ -6,4 +6,4 @@ frame analysis. Nothing is uploaded anywhere.
 
 APP_NAME = "Video Compilation Maker"
 APP_ID = "VideoCompilationMaker"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
