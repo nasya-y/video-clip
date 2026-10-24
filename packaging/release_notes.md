@@ -1,4 +1,4 @@
-## Video Compilation Maker 1.0.2 for Windows (64-bit)
+## Video Compilation Maker 1.0.3 for Windows (64-bit)
 
 **Changes since 1.0.2**
 
@@ -13,8 +13,8 @@ Turns your local videos into 30-second highlight compilations automatically — 
 
 **Downloads**
 
-* `VideoCompilationMaker-Setup-1.0.2.exe` — installer (recommended). Installs for the current user, no administrator rights needed, adds Start-menu and optional desktop shortcuts, includes an uninstaller.
-* `VideoCompilationMaker-1.0.2-portable-win64.zip` — portable version: unzip anywhere and run `VideoCompilationMaker.exe`.
+* `VideoCompilationMaker-Setup-1.0.3.exe` — installer (recommended). Installs for the current user, no administrator rights needed, adds Start-menu and optional desktop shortcuts, includes an uninstaller.
+* `VideoCompilationMaker-1.0.3-portable-win64.zip` — portable version: unzip anywhere and run `VideoCompilationMaker.exe`.
 
 Everything needed (Python runtime, Qt, OpenCV, FFmpeg 9.0) is bundled. No internet connection, account or API key is required, and no video ever leaves your computer.
 
