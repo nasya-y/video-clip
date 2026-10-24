@@ -276,10 +276,14 @@ def test_hdr_source_is_tone_mapped(videos, tmp_path, trc):
     from vcm.ffmpeg_tools import ffmpeg
     src, gt = videos.get("for_hdr.mp4", two_shot(45.0), width=640, height=360, fps=30, seed=61)
     hdr = tmp_path / f"hdr {trc}.mp4"
-    r = subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-c:v", "libx265",
-                        "-preset", "ultrafast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le",
-                        "-color_primaries", "bt2020", "-color_trc", trc, "-colorspace", "bt2020nc", "-tag:v", "hvc1",
-                        "-c:a", "copy", str(hdr)], capture_output=True, text=True)
+    # HDR signalling on the frames, in the container and in the HEVC bitstream (VUI), like camera files
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", src,
+                        "-vf", f"setparams=color_primaries=bt2020:color_trc={trc}:colorspace=bt2020nc",
+                        "-c:v", "libx265", "-preset", "ultrafast",
+                        "-x265-params", f"log-level=error:colorprim=bt2020:transfer={trc}:colormatrix=bt2020nc",
+                        "-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", trc,
+                        "-colorspace", "bt2020nc", "-tag:v", "hvc1", "-c:a", "copy", str(hdr)],
+                       capture_output=True, text=True)
     if r.returncode != 0 and "libx265" in r.stderr:
         pytest.skip("this FFmpeg build has no libx265 encoder")
     assert r.returncode == 0, r.stderr
