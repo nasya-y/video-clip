@@ -70,6 +70,8 @@ class Settings:
     watermark_position: str = "auto"
     watermark_color_mode: str = "auto"  # "auto" | "custom"
     watermark_custom_color: str = "#39FF14"
+    # fluted-glass look over the picture (the watermark stays on top, sharp)
+    glass_effect: bool = False
     # remembered UI state
     input_paths: list[str] = field(default_factory=list)
     output_dir: str = ""
@@ -90,6 +92,7 @@ class Settings:
         s.clip_duration = _clamp(_num(s.clip_duration, 3.0), 0.5, 60.0)
         s.clips_per_compilation = int(_clamp(_num(s.clips_per_compilation, 10), 1, 100))
         s.max_fps = int(_clamp(_num(s.max_fps, 60), 10, 120))
+        s.glass_effect = s.glass_effect is True
         if s.quality not in QUALITY_PRESETS:
             s.quality = "high"
         if s.cut_sensitivity not in CUT_SENSITIVITY:
@@ -144,6 +147,7 @@ class Settings:
             "watermark_position": self.watermark_position,
             "watermark_color_mode": self.watermark_color_mode,
             "watermark_custom_color": self.watermark_custom_color if self.watermark_color_mode == "custom" else None,
+            "glass_effect": self.glass_effect,
         }
 
     def plan_key(self) -> dict[str, Any]:

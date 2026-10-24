@@ -56,6 +56,7 @@ class OutputFormat:
     audio_channels: int
     notes: list
     color_tags: dict = None  # colour metadata copied from the source (empty when it has none)
+    glass: bool = False      # fluted-glass effect over the picture (under the watermark)
 
     def to_dict(self) -> dict:
         return {
@@ -64,6 +65,7 @@ class OutputFormat:
             "frame_rate_float": round(float(self.fps), 4),
             "colorspace": self.colorspace, "colour_tags": dict(self.color_tags or {}),
             "hdr_tonemapped": self.hdr_tonemap,
+            "glass_effect": self.glass,
             "audio": self.audio, "audio_channels": self.audio_channels if self.audio else 0,
             "audio_sample_rate": AUDIO_RATE if self.audio else None,
             "notes": list(self.notes),
@@ -123,7 +125,37 @@ def output_format(info: MediaInfo, an: AnalysisResult, settings: Settings) -> Ou
         src = {"colorspace": info.color_space, "color_primaries": info.color_primaries,
                "color_trc": info.color_transfer, "color_range": info.color_range}
         tags = {k: v for k, v in src.items() if v in _VALID_TAGS[k]}
-    return OutputFormat(ow, oh, fps, needs_scale, cs, hdr, info.has_audio, channels, notes, tags)
+    return OutputFormat(ow, oh, fps, needs_scale, cs, hdr, info.has_audio, channels, notes, tags,
+                        glass=bool(getattr(settings, "glass_effect", False)))
+
+
+# Fluted (reeded) glass: vertical ribs, each acting as a cylindrical lens that shows a
+# squeezed copy of the picture around it, softened and shaded at the rib edges.
+GLASS_RIBS = 34            # ribs across the width
+GLASS_SQUEEZE = 2.2        # each rib shows this many rib widths of the picture behind it
+
+
+def glass_chain(w: int, h: int, head: str, tail: str) -> str:
+    """Filter text applying the glass effect to the stream given by ``head``.
+
+    ``head`` is the input label (optionally followed by filters ending in a comma) and
+    ``tail`` the output label ("" leaves the last chain open for more filters).  The lens
+    maps are computed once from single-frame sources, so the cost per frame is a blur and
+    a pixel lookup."""
+    rib = max(6, round(w / GLASS_RIBS))
+    sig = max(1.0, w / 140.0)
+    c = f"(trunc(X/{rib})*{rib}+{rib}/2)"
+    xmap = f"clip({c}+{GLASS_SQUEEZE}*(X-{c}),0,{w - 1})"
+    u = f"(mod(X,{rib})/{rib})"
+    light = f"0.10*exp(-pow(({u}-0.32)/0.10,2))"
+    shade = f"0.22*(exp(-pow({u}/0.12,2))+exp(-pow((1-{u})/0.12,2)))"
+    one = f"color=c=black:s={w}x{h}:r=1:d=1"
+    return (f"{head}format=yuv444p,gblur=sigma={sig:.2f}:sigmaV={1.6 * sig:.2f}[gl0];"
+            f"{one},format=gray16le,geq=lum='{xmap}'[glx];"
+            f"{one},format=gray16le,geq=lum='Y'[gly];"
+            f"color=c=black@0:s={w}x{h}:r=1:d=1,format=yuva444p,"
+            f"geq=lum='if(gt({light},{shade}),255,0)':cb=128:cr=128:a='255*max({light},{shade})'[gls];"
+            f"[gl0][glx][gly]remap=fill=black[gl1];[gl1][gls]overlay=format=yuv444,format=yuv420p{tail}")
 
 
 def frame_boundaries(n_clips: int, clip_duration: float, fps: Fraction) -> list[int]:
@@ -204,6 +236,14 @@ class RenderJob:
                       "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p"]
         return parts
 
+    def match_filters(self) -> str:
+        """Filters that turn source pictures into what the output shows (for verification)."""
+        if not self.fmt.glass:
+            return ",".join(self.picture_filters())
+        head = "[in]" + "".join(f + "," for f in self.picture_filters()
+                                + [f"scale={self.fmt.width}:{self.fmt.height}:flags=lanczos", "setsar=1"])
+        return glass_chain(self.fmt.width, self.fmt.height, head, "")
+
     def _video_chain(self, i: int, n_frames: int) -> str:
         fmt = self.fmt
         parts = self.picture_filters()
@@ -247,15 +287,18 @@ class RenderJob:
             pads = "".join(f"[v{i}]" for i in range(n))
             chains.append(f"{pads}concat=n={n}:v=1:a=0[cv]")
         vout = "cv"
+        if self.fmt.glass:
+            chains.append(glass_chain(self.fmt.width, self.fmt.height, "[cv]", "[cvg]"))
+            vout = "cvg"
         if preview is not None:
             pw, ph, pf = preview
-            chains.append(f"[cv]fps={pf:.10g},scale={pw}:{ph}:flags=area,format=rgb24[pv]")
+            chains.append(f"[{vout}]fps={pf:.10g},scale={pw}:{ph}:flags=area,format=rgb24[pv]")
             vout = "pv"
         elif watermark is not None:
             idx, x, y = watermark
             matrix = "bt709" if self.fmt.colorspace == "bt709" else "smpte170m"
             chains.append(f"[{idx}:v]scale=out_color_matrix={matrix}:out_range=tv,format=yuva444p[wm]")
-            chains.append(f"[cv][wm]overlay=x={x}:y={y}:format=yuv444:eof_action=repeat,format=yuv420p[vout]")
+            chains.append(f"[{vout}][wm]overlay=x={x}:y={y}:format=yuv444:eof_action=repeat,format=yuv420p[vout]")
             vout = "vout"
         return ";".join(chains), vout, ("ca" if use_audio else None)
 

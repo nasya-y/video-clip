@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--watermark-color", help="'auto' (default) or a colour like #39FF14")
     p.add_argument("--sensitivity", choices=list(CUT_SENSITIVITY), help="cut detection sensitivity")
     p.add_argument("--distribution", choices=list(DISTRIBUTIONS))
+    p.add_argument("--glass", choices=["on", "off"], help="fluted-glass effect over the picture")
     p.add_argument("--defaults", action="store_true", help="ignore saved settings and use the defaults")
     p.add_argument("--self-test", metavar="OUTDIR", help="generate a test video, process it and verify the result")
     p.add_argument("--gui-smoke", metavar="PNG", help="open the window, save a screenshot and exit")
@@ -68,6 +69,8 @@ def settings_from_args(args: argparse.Namespace) -> Settings:
         s.cut_sensitivity = args.sensitivity
     if args.distribution:
         s.distribution = args.distribution
+    if args.glass:
+        s.glass_effect = args.glass == "on"
     return s.validated()
 
 

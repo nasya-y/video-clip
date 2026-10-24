@@ -623,6 +623,48 @@ def read_frames(path: str, width: int, height: int, **kwargs) -> tuple[np.ndarra
     return np.asarray(times, dtype=np.float64), np.stack(frames)
 
 
+def loudness_envelope(path: str, hop: float = 0.05, cancel: Optional[CancelToken] = None
+                      ) -> tuple[np.ndarray, np.ndarray]:
+    """Loudness of the first audio stream: (times, RMS level in dBFS) every ``hop`` seconds.
+
+    Streams the audio at a low sample rate, so memory use does not grow with the length of
+    the video. Times are on the same zero-based timeline as the video frames."""
+    rate = 8000
+    n_hop = max(1, int(round(hop * rate)))
+    cmd = [ffmpeg(), "-hide_banner", "-nostdin", "-loglevel", "error", "-i", path, "-map", "0:a:0",
+           "-vn", "-sn", "-dn", "-af", f"aresample={rate}:async=1:first_pts=0", "-ac", "1",
+           "-f", "s16le", "pipe:1"]
+    proc = popen(cmd, cancel, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    levels: list[np.ndarray] = []
+    rest = np.zeros(0, np.float32)
+    errbuf: list[bytes] = []
+    try:
+        drain = threading.Thread(target=lambda: errbuf.append(proc.stderr.read()), daemon=True)
+        drain.start()
+        while True:
+            if cancel is not None and cancel.cancelled:
+                _kill(proc)
+                raise Cancelled()
+            chunk = proc.stdout.read(1 << 16)
+            if not chunk:
+                break
+            x = np.concatenate([rest, np.frombuffer(chunk[: len(chunk) // 2 * 2], np.int16).astype(np.float32) / 32768.0])
+            m = len(x) // n_hop
+            if m:
+                blocks = x[: m * n_hop].reshape(m, n_hop)
+                levels.append(10.0 * np.log10(np.mean(blocks * blocks, axis=1) + 1e-10))
+            rest = x[m * n_hop:]
+        proc.wait()
+        drain.join(timeout=5)
+    finally:
+        if cancel is not None:
+            cancel.unregister(proc)
+    if proc.returncode != 0 or not levels:
+        raise FFmpegError("Could not measure the audio loudness.", tail(b"".join(errbuf).decode(errors="replace")))
+    db = np.concatenate(levels).astype(np.float32)
+    return (np.arange(len(db)) + 0.5) * (n_hop / rate), db
+
+
 def read_audio(path: str, sample_rate: int = 16000, start: Optional[float] = None,
                duration: Optional[float] = None, cancel: Optional[CancelToken] = None) -> np.ndarray:
     """Decode the first audio stream to mono float32 samples."""

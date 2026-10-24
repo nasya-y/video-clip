@@ -325,6 +325,14 @@ class MainWindow(QMainWindow):
         r += 1
         g.addWidget(lab("Clip order"), r, 0)
         g.addWidget(self.cb_dist, r, 1, 1, 3)
+        r += 1
+        self.btn_glass = QPushButton("Off")
+        self.btn_glass.setCheckable(True)
+        self.btn_glass.setToolTip("Fluted-glass look over the whole picture: vertical glass ribs that blur and "
+                                  "refract the video. The watermark stays sharp on top.")
+        self.btn_glass.toggled.connect(self._glass_toggled)
+        g.addWidget(lab("Glass effect"), r, 0)
+        g.addWidget(self.btn_glass, r, 1)
         lay.addLayout(g)
         lay.addStretch(1)
         row = QHBoxLayout()
@@ -458,6 +466,8 @@ class MainWindow(QMainWindow):
             i = cb.findData(val)
             cb.setCurrentIndex(max(0, i))
         self._custom_colour = s.watermark_custom_color
+        self.btn_glass.setChecked(s.glass_effect)
+        self.btn_glass.setText("On" if s.glass_effect else "Off")
         self.out_edit.setText(s.output_dir)
         self.video_list.clear()
         for p in s.input_paths:
@@ -474,10 +484,15 @@ class MainWindow(QMainWindow):
             distribution=self.cb_dist.currentData(), watermark_text=self.ed_text.text(),
             watermark_size=self.cb_size.currentData(), watermark_position=self.cb_pos.currentData(),
             watermark_color_mode=self.cb_colour.currentData(), watermark_custom_color=self._custom_colour,
+            glass_effect=self.btn_glass.isChecked(),
             input_paths=self.input_paths(), output_dir=self.out_edit.text().strip(),
             last_browse_dir=self.settings.last_browse_dir,
         )
         return s.validated()
+
+    def _glass_toggled(self, on: bool) -> None:
+        self.btn_glass.setText("On" if on else "Off")
+        self._settings_changed()
 
     def _settings_changed(self, *_):
         if getattr(self, "_loading", False):
@@ -594,7 +609,8 @@ class MainWindow(QMainWindow):
         self.btn_cancel.setEnabled(busy)
         for w in (self.btn_add, self.btn_folder, self.btn_remove, self.btn_clear, self.btn_out, self.out_edit,
                   self.btn_defaults, self.sp_speed, self.sp_clip, self.sp_count, self.cb_quality, self.ed_text,
-                  self.cb_size, self.cb_pos, self.cb_colour, self.cb_sens, self.cb_dist, self.sp_fps):
+                  self.cb_size, self.cb_pos, self.cb_colour, self.cb_sens, self.cb_dist, self.sp_fps,
+                  self.btn_glass):
             w.setEnabled(not busy)
         if not busy:
             self.btn_swatch.setEnabled(self.cb_colour.currentData() == "custom")

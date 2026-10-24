@@ -15,7 +15,8 @@ chosen footage second:
    maximum number of compilations ``M = K // N``.
 2. Exactly ``K - M*N`` clips must be left out.  A dynamic programme decides in which
    runs to leave them out and where to place the remaining clips inside each run so
-   that the summed quality (motion, sharpness, exposure) is as high as possible.
+   that the summed quality (movement and loudness first, then sharpness and exposure) is
+   as high as possible.
 3. The chosen clips are distributed over the compilations; every compilation keeps its
    clips in chronological source order.
 
@@ -50,6 +51,7 @@ class Clip:
     motion: float
     sharpness: float
     exposure: float
+    loudness: Optional[float] = None
 
     def overlaps(self, a: float, b: float) -> bool:
         return self.source_start < b - OVERLAP_TOL and a < self.source_end - OVERLAP_TOL
@@ -67,6 +69,7 @@ class Clip:
             "motion_score": round(float(self.motion), 4),
             "sharpness_score": round(float(self.sharpness), 4),
             "exposure_score": round(float(self.exposure), 4),
+            "loudness_score": None if self.loudness is None else round(float(self.loudness), 4),
         }
 
 
@@ -254,6 +257,7 @@ def plan_compilations(an: AnalysisResult, speed: float, clip_duration: float,
             motion=float(np.mean(an.motion_score[sl])),
             sharpness=float(np.mean(an.sharp_score[sl])),
             exposure=float(np.mean(an.exposure_score[sl])),
+            loudness=None if an.loudness_score is None else float(np.mean(an.loudness_score[sl])),
         ))
     plan.compilations = distribute(clips, M, N, distribution)
     return plan

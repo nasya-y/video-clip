@@ -30,6 +30,7 @@ QLabel#Stat { color: #CFD4E2; }
 QLabel#Derived { color: #6EF0B0; font-weight: 650; }
 
 QPushButton { background: #262C3B; border: 1px solid #343B50; border-radius: 9px; padding: 6px 14px; color: #E8EAF0; }
+QPushButton:checked { background: #5B4BD6; border: 1px solid #8C7BFF; color: #FFFFFF; font-weight: 600; }
 QPushButton:hover { background: #2F3649; border-color: #4A5370; }
 QPushButton:pressed { background: #232837; }
 QPushButton:disabled { color: #5D6478; background: #1C202B; border-color: #262B38; }

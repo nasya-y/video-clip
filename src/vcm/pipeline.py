@@ -23,9 +23,9 @@ from PIL import Image
 
 from . import APP_NAME, __version__
 from .analysis import (ANALYSIS_MAX_SIDE, AnalysisResult, analyze_video, file_fingerprint,
-                       seeking_matches_analysis)
+                       seeking_matches_analysis, set_loudness)
 from .ffmpeg_tools import (CancelToken, Cancelled, FFmpegError, MediaInfo, ffmpeg, ffmpeg_version, has_seek_index,
-                           probe, remux_to_matroska, run)
+                           loudness_envelope, probe, remux_to_matroska, run)
 from .paths import cache_dir, temp_root
 from .render import RenderJob, output_format, preview_frames, render
 from .report import (REPORT_NAME, Report, compilation_name, existing_compilation_files, now_iso,
@@ -320,6 +320,13 @@ class Pipeline:
             if work is info or not seeking_matches_analysis(work, an, cancel):
                 report.add_warning("Seeking in this file is not frame-accurate. Every compilation is still "
                                    "verified against the source, and clips that do not match are replaced.")
+        if work.has_audio:
+            prog.set(0.35, f"{name}: measuring audio loudness", force=True)
+            try:
+                set_loudness(an, *loudness_envelope(work.path, cancel=cancel))
+            except FFmpegError as exc:
+                report.add_warning(f"The audio loudness could not be measured ({exc}); clips are chosen by "
+                                   "movement and picture quality only.")
         if getattr(an, "decode_warnings", 0):
             report.add_warning(f"The decoder reported {an.decode_warnings} warnings while reading the source "
                                "(the file may be slightly damaged).")
@@ -350,6 +357,10 @@ class Pipeline:
                       "flow-compensated residual with adaptive thresholds; blend test for dissolves/fades; "
                       "camera shake (shift/rotation/zoom fitted to the flow, motion blur, swing-back) is "
                       "told apart from jump cuts",
+            "clip_preference": ("louder and more active sections first (audio loudness and movement weigh "
+                                "equally), then sharpness, exposure and contrast"
+                                if an.loudness_score is not None else
+                                "more active sections first (movement), then sharpness, exposure and contrast"),
         }
         report.data["skipped_sections"] = [s for s in report.data.get("skipped_sections", [])
                                            if "rejected by verification" in s.get("reason", "")]

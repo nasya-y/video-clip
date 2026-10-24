@@ -219,6 +219,18 @@ def verify_compilation(job: RenderJob, out_path: str, style: WatermarkStyle, sen
                           or (mini.black & inside).any())
         if cut_inside:
             cut_fail.append(k)
+        if fmt.glass:
+            # compare with the source as the output shows it: through the same glass effect
+            gts, sn = [], []
+            for _, t, f in FrameReader(job.info.path, aw, ah, start=start, duration=window, cancel=cancel,
+                                       stream=job.info.video_stream_index, pre_filters=job.match_filters()):
+                gts.append(start + t)
+                sn.append(_norm(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), mask))
+            if len(gts) != len(st_arr) and gts:
+                st_arr = np.asarray(gts)
+                nearest = int(np.argmin(np.abs(st_arr - t_k)))
+                if abs(st_arr[nearest] - t_k) < 0.25 * frame_dur * S:
+                    st_arr = st_arr + (t_k - st_arr[nearest])
         # (b) frame matching
         dists, offsets, decisive = [], [], []
         speed_pts = []

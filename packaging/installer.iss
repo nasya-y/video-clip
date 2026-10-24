@@ -1,8 +1,8 @@
 ; Inno Setup script for Video Compilation Maker (per-user install, no administrator rights needed)
-; Build:  iscc /DMyAppVersion=1.0.2 packaging\installer.iss   (after PyInstaller has produced dist\VideoCompilationMaker)
+; Build:  iscc /DMyAppVersion=1.0.3 packaging\installer.iss   (after PyInstaller has produced dist\VideoCompilationMaker)
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.2"
+  #define MyAppVersion "1.0.3"
 #endif
 #define MyAppName "Video Compilation Maker"
 #define MyAppExeName "VideoCompilationMaker.exe"

@@ -346,3 +346,51 @@ def test_other_codecs_and_containers(videos, tmp_path, ext, vargs, aargs):
     assert not [e for e in rep["allocation_ledger"] if e["status"] == "rejected"], "footage was thrown away"
     assert ("seekable_copy" in rep) == (ext in (".m2ts", ".mpg"))
     assert_valid_compilation(tmp_path / "o" / out.stem / "Compilation 1.mp4", True, (480, 270))
+
+
+# ----------------------------------------------------------------------------- loudness and glass
+
+def test_louder_footage_is_preferred(one_comp_video):
+    """12 clips fit and 10 are used: the two left out must be the silent ones."""
+    from vcm.analysis import analyze_video, set_loudness
+    from vcm.ffmpeg_tools import loudness_envelope
+    from vcm.selection import plan_compilations
+    path, gt = one_comp_video
+    times, db = loudness_envelope(path)
+    assert abs(times[-1] - gt.duration) < 0.2 and len(times) == len(db)
+    # the synthetic sound track has short beeps: they stand out from the level around them
+    at_beeps = np.interp(np.asarray(gt.beeps) + 0.02, times, db)
+    assert np.median(at_beeps) > np.median(db) + 3.0
+    an = analyze_video(probe(path))
+    base = plan_compilations(an, 1.3, 3.0, 10, "spread").compilations[0]
+    # silence the footage of two of the planned clips, keep the rest loud
+    quiet = [(base[2].source_start, base[2].source_end), (base[7].source_start, base[7].source_end)]
+    level = np.full(len(times), -15.0, np.float32)
+    for a, b in quiet:
+        level[(times >= a) & (times < b)] = -90.0
+    set_loudness(an, times, level)
+    plan = plan_compilations(an, 1.3, 3.0, 10, "spread").compilations[0]
+    assert len(plan) == 10
+    overlap = sum(max(0.0, min(b, c.source_end) - max(a, c.source_start)) for c in plan for a, b in quiet)
+    assert overlap < 1.0, "silent footage was chosen although louder footage was available"
+    assert all(c.loudness is not None and c.loudness > 0.5 for c in plan)
+
+
+def test_glass_effect(one_comp_video, tmp_path):
+    path, _ = one_comp_video
+    s = run([path], tmp_path, Settings(glass_effect=True))
+    assert not s.errors, s.errors
+    rep = load_report(tmp_path / Path(path).stem)
+    assert rep["settings"]["glass_effect"] is True and rep["output_format"]["glass_effect"] is True
+    comp = rep["compilations"][0]
+    assert comp["verification"]["passed"], comp["verification"]["problems"]
+    # vertical glass ribs: the brightness across the picture repeats every rib width
+    from vcm.render import GLASS_RIBS
+    frames = [f for _, _, f in FrameReader(str(tmp_path / Path(path).stem / "Compilation 1.mp4"), 480, 270,
+                                           start=5.0, duration=0.2, scale=False)]
+    cols = np.mean([f.mean(axis=(0, 2)) for f in frames], axis=0)[:380]   # left of the watermark
+    x = cols - np.convolve(cols, np.ones(41) / 41, mode="same")
+    x = x[30:-30]
+    rib = round(480 / GLASS_RIBS)
+    corr = float(np.dot(x[:-rib], x[rib:]) / np.sqrt(np.dot(x[:-rib], x[:-rib]) * np.dot(x[rib:], x[rib:])))
+    assert corr > 0.5, f"no rib pattern in the output (correlation {corr:.2f})"

@@ -86,6 +86,7 @@ class AnalysisResult:
     motion_score: np.ndarray = field(default_factory=lambda: np.zeros(0, np.float32))
     sharp_score: np.ndarray = field(default_factory=lambda: np.zeros(0, np.float32))
     exposure_score: np.ndarray = field(default_factory=lambda: np.zeros(0, np.float32))
+    loudness_score: Optional[np.ndarray] = None   # filled by set_loudness() when there is audio
     sensitivity: str = "high"
 
     @property
@@ -681,7 +682,31 @@ def finalize(res: AnalysisResult, sensitivity: str = "high") -> AnalysisResult:
     expo = 1.0 - np.minimum(1.0, np.abs(luma - 0.47) / 0.47)
     expo = np.clip(expo - 0.8 * (r["dark"] + r["bright"]), 0.0, 1.0)
     res.exposure_score = expo.astype(np.float32)
-    contrast = np.minimum(1.0, r["contrast"] / 55.0)
-    q = 0.5 * res.motion_score + 0.2 * res.sharp_score + 0.2 * res.exposure_score + 0.1 * contrast
-    res.quality = q.astype(np.float32)
+    res.loudness_score = None
+    _update_quality(res)
     return res
+
+
+def _update_quality(res: AnalysisResult) -> None:
+    """Per-frame clip preference: movement (and loudness, when known) first, then picture."""
+    contrast = np.minimum(1.0, res.raw["contrast"] / 55.0)
+    q = 0.2 * res.sharp_score + 0.2 * res.exposure_score + 0.1 * contrast
+    if res.loudness_score is not None:
+        q = 0.6 * q + 0.35 * res.motion_score + 0.35 * res.loudness_score
+    else:
+        q = q + 0.5 * res.motion_score
+    res.quality = q.astype(np.float32)
+
+
+def set_loudness(res: AnalysisResult, times: np.ndarray, db: np.ndarray) -> None:
+    """Make louder sections preferred as much as sections with more movement.
+
+    ``db`` is the audio level (dBFS) at ``times``; each frame gets the level of the audio
+    playing during it, scored both against the rest of this video and on an absolute scale
+    (silence scores 0)."""
+    if len(times) == 0 or res.n == 0:
+        return
+    level = np.interp(res.t + 0.5 * res.durations, times, db, left=float(db[0]), right=float(db[-1]))
+    absolute = np.clip((level + 50.0) / 40.0, 0.0, 1.0)   # -50 dBFS (very quiet) .. -10 dBFS (loud)
+    res.loudness_score = (0.5 * absolute + 0.5 * _rank(level) * (absolute > 0)).astype(np.float32)
+    _update_quality(res)
